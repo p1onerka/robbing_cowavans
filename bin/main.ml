@@ -135,9 +135,16 @@ let parse_and_print text =
   | `Success (ast, pos) -> 
       print_expr_levels ast 0
 
+let read_file_as_string filename =
+  let ic = open_in filename in
+  let n = in_channel_length ic in
+  let s = really_input_string ic n in
+  close_in ic;
+  s
+
 (* example *)
 let () =
-  let input = "1+3+3+a_s" in
+  let input = read_file_as_string "test/test_input.txt" in
   parse_and_print input
 
   (* outside parser calling inside parsers of assignment, while or if 
