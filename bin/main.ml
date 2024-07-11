@@ -1,10 +1,20 @@
-type oper = Plus | Multiply | Divide
+type ariphm_oper = Plus | Multiply | Divide
 
 (* tree construction for every expression which can be const or expr (then root is statement) *)
 type expr =
-    | Const of int
-    | Var of string
-    | Binop of oper * expr * expr
+  | Const of int
+  | Var of string
+  | Binop of ariphm_oper * expr * expr
+
+type comp_oper = 
+  | Less
+  | Greater
+  | Less_or_equal
+  | Greater_or_equal
+  | Equal
+  | Not_equal
+
+type comparision = Comparision of comp_oper * expr * expr
 
 let find_len s = 
   String.length s
@@ -118,6 +128,37 @@ and factor text pos =
   (* unknown token *)
   else
     `Error
+(* Pascal-like: [=] - equal, [<>] - not equal, [<], [<=], [>], [>=]  *)
+let bin_oper text pos =
+  let after_less_oper  =
+    let pos = ws text (pos + 1) in
+      if pos >= find_len text then `Success (Less, pos)
+      else match text.[pos] with
+      | '>' -> `Success (Not_equal, pos + 1)
+      | '=' -> `Success (Less_or_equal, pos + 1)
+      | _ -> `Success (Less, pos)
+  in
+  let pos = ws text pos in
+  if pos >= find_len text then `Error
+  else match text.[pos] with 
+    | '=' -> `Success (Equal, pos + 1)
+    | '<' -> after_less_oper
+    | '>' -> let pos = ws text (pos + 1) in
+      if pos < find_len text && text.[pos] == '=' then
+        `Success (Greater_or_equal, pos + 1)
+      else `Success (Greater, pos)
+    | _ -> `Error
+
+let comparision text pos =
+  match expr text pos with 
+  | `Error -> `Error
+  | `Success (e1, pos) ->
+    match bin_oper text pos with
+    | `Error -> `Error
+    | `Success (c_op, pos) -> 
+      match expr text pos with
+      | `Error -> `Error
+      | `Success (e2, pos)-> `Success (Comparision (c_op, e1, e2), pos)
 
 let rec print_expr_levels expr level =
   match expr with
@@ -132,8 +173,24 @@ let rec print_expr_levels expr level =
 let parse_and_print text =
   match expr text 0 with
   | `Error -> Printf.printf "Error parsing expression\n"
-  | `Success (ast, pos) -> 
+  | `Success (ast, _) -> 
       print_expr_levels ast 0
+
+let parse_and_print_comparision text =
+  match comparision text 0 with
+  | `Error -> Printf.printf "Error parsing comporission\n"
+  | `Success (Comparision (c_op, left, right), _) -> 
+    Printf.printf "Comporision %s\n"
+    ( match (c_op) with
+    | Equal-> "="
+    | Less -> "<"
+    | Greater -> ">"
+    | Not_equal -> "<>"
+    | Less_or_equal -> "<="
+    | Greater_or_equal -> ">="
+    );
+    print_expr_levels left 1;
+    print_expr_levels right 1
 
 let read_file_as_string filename =
   let ic = open_in filename in
@@ -151,3 +208,11 @@ let () =
      if any of them is true than call outside parser from current inside position
      else try another inside parser from starting position
     *)
+
+(*comparision examples *)
+(* let() =
+  let input = read_file_as_string "test/test_comporision1_input" in
+    parse_and_print_comparision input *)
+(* let() =
+  let input = read_file_as_string "test/test_comporision2_input" in
+    parse_and_print_comparision input *)
