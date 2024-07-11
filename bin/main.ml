@@ -211,8 +211,8 @@ let () =
 
 (*comparision examples *)
 (* let() =
-  let input = read_file_as_string "test/test_comporision1_input" in
+  let input = read_file_as_string "test/test_comporision1_input.txt" in
     parse_and_print_comparision input *)
 (* let() =
-  let input = read_file_as_string "test/test_comporision2_input" in
+  let input = read_file_as_string "test/test_comporision2_input.txt" in
     parse_and_print_comparision input *)
