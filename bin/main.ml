@@ -16,6 +16,14 @@ type comp_oper =
 
 type comparision = Comparision of comp_oper * expr * expr
 
+type ident = Ident of string
+
+type statements = 
+  | Assignment_and_tail of (ident * expr) * statements
+  | While_Do_Done_and_tail of (comparision * statements) * statements
+  | If_Then_Else_Fi_and_tail of (comparision * statements * statements) * statements
+  | Nothing
+
 let find_len s = 
   String.length s
 
@@ -51,7 +59,7 @@ let ident_or_keyword text pos =
   let length = find_len text in
   let rec acc_id pos acc =
     if pos < length && is_alpha text.[pos] then
-      acc_id(pos + 1) (acc ^ String.make 1 text.[pos])
+      acc_id (pos + 1) (acc ^ String.make 1 text.[pos])
     else
       if String.length acc > 0 then
         `Success (acc, pos)
@@ -128,8 +136,9 @@ and factor text pos =
   (* unknown token *)
   else
     `Error
+
 (* Pascal-like: [=] - equal, [<>] - not equal, [<], [<=], [>], [>=]  *)
-let bin_oper text pos =
+let comp_oper text pos =
   let after_less_oper  =
     let pos = ws text (pos + 1) in
       if pos >= find_len text then `Success (Less, pos)
@@ -153,12 +162,75 @@ let comparision text pos =
   match expr text pos with 
   | `Error -> `Error
   | `Success (e1, pos) ->
-    match bin_oper text pos with
+    match comp_oper text pos with
     | `Error -> `Error
     | `Success (c_op, pos) -> 
       match expr text pos with
       | `Error -> `Error
       | `Success (e2, pos)-> `Success (Comparision (c_op, e1, e2), pos)
+
+type end_marker = EOF | Word of string
+
+(* wdd = while-do-done, itef = if-then-else-fi *)
+let rec statements text pos end_marker =
+  if pos >= find_len text && end_marker == EOF then `Success (Nothing, pos)
+  else match ident_or_keyword text pos with
+    | `Error -> `Error
+    | `Success (id_or_kw, pos) ->
+      match Word id_or_kw with
+      | em when em = end_marker -> `Success (Nothing, pos)
+      | Word "while" -> wdd_and_tail text pos end_marker
+      | Word "if" -> itef_and_tail text pos end_marker
+      | Word id -> 
+        if (is_keyword id) then `Error
+        else assignment_and_tail text pos (Ident id) end_marker
+      | _ -> `Error (* unreacheable *)
+        
+and assignment_and_tail text pos id prev_end_marker =
+  (*fake implementation, you have to do*)
+  match statements text (pos + 2) prev_end_marker with
+  | `Error -> `Error 
+  | `Success(st, pos) ->
+    `Success (Assignment_and_tail ((id, Const 88), st), pos)
+
+and comp_and_statements text pos statements_start_word statements_end_marker = (*common part of wdd & itef*)
+  match comparision text pos with
+  | `Error -> `Error
+  | `Success (comp_tree, pos) ->
+    (match ident_or_keyword text pos with
+    | `Success (ssw, pos) when ssw = statements_start_word ->
+      (match statements text pos statements_end_marker with
+      | `Error -> `Error
+      | `Success (st, pos)-> `Success (comp_tree, st, pos))
+    | _ -> `Error)
+
+and wdd_and_tail text pos prev_end_marker = 
+  match comp_and_statements text pos "do" (Word "done") with
+  | `Error -> `Error
+  | `Success (comp_tree, st, pos)->
+    match statements text pos prev_end_marker  with
+    | `Error -> `Error
+    | `Success (tail, pos) -> 
+      `Success (While_Do_Done_and_tail ((comp_tree, st), tail), pos)
+
+and itef_and_tail text pos prev_end_marker = 
+  match comp_and_statements text pos "then" (Word "else") with
+  | `Error -> `Error
+  | `Success (comp_tree, st1, pos)-> 
+    (match statements text pos (Word "fi") with
+    | `Error -> `Error
+    | `Success (st2, pos)->
+      (match statements text pos prev_end_marker  with
+      | `Error -> `Error
+      | `Success (tail, pos) -> 
+        `Success (If_Then_Else_Fi_and_tail ((comp_tree, st1, st2), tail), pos)))
+
+let read_file_as_string filename =
+  let ic = open_in filename in
+  let n = in_channel_length ic in
+  let s = really_input_string ic n in
+  close_in ic;
+  s
 
 let rec print_expr_levels expr level =
   match expr with
@@ -176,33 +248,60 @@ let parse_and_print text =
   | `Success (ast, _) -> 
       print_expr_levels ast 0
 
-let parse_and_print_comparision text =
+let print_comporision_levels comparision level =
+  let Comparision (c_op, left, right) = comparision in
+  Printf.printf "%sComporision %s\n" (String.make (level * 2) ' ')
+  ( match (c_op) with
+  | Equal-> "="
+  | Less -> "<"
+  | Greater -> ">"
+  | Not_equal -> "<>"
+  | Less_or_equal -> "<="
+  | Greater_or_equal -> ">="
+  );
+  print_expr_levels left (level + 1);
+  print_expr_levels right (level + 1)
+
+let parse_and_print_comparision text  =
   match comparision text 0 with
   | `Error -> Printf.printf "Error parsing comporission\n"
-  | `Success (Comparision (c_op, left, right), _) -> 
-    Printf.printf "Comporision %s\n"
-    ( match (c_op) with
-    | Equal-> "="
-    | Less -> "<"
-    | Greater -> ">"
-    | Not_equal -> "<>"
-    | Less_or_equal -> "<="
-    | Greater_or_equal -> ">="
-    );
-    print_expr_levels left 1;
-    print_expr_levels right 1
+  | `Success (comparision, _) -> 
+    print_comporision_levels comparision 0
 
-let read_file_as_string filename =
-  let ic = open_in filename in
-  let n = in_channel_length ic in
-  let s = really_input_string ic n in
-  close_in ic;
-  s
+let rec print_statements_levels statements level =
+  match statements with
+  | While_Do_Done_and_tail ((comp, st), tail) -> 
+    Printf.printf "%sWhileDoDone_and_tail\n" (String.make (level * 2) ' ');
+    print_comporision_levels comp (level + 1);
+    print_statements_levels st (level + 1);
+    print_statements_levels tail (level + 1)
+  | If_Then_Else_Fi_and_tail ((comp, st1, st2), tail) ->
+    Printf.printf "%sIfThenElseFi_and_tail\n" (String.make (level * 2) ' ');
+    print_comporision_levels comp (level + 1);
+    print_statements_levels st1 (level + 1);
+    print_statements_levels st2 (level + 1);
+    print_statements_levels tail (level + 1)
+  | Assignment_and_tail ((Ident (ident), expr), tail) ->
+    Printf.printf "%sAssignment_and tail\n" (String.make (level * 2) ' ');
+    Printf.printf "%s%s\n" (String.make ((level + 1) * 2) ' ') ident;
+    print_expr_levels expr (level + 1);
+    print_statements_levels tail (level + 1)
+  | Nothing -> Printf.printf "%s%s\n" (String.make (level * 2) ' ') "Nothing"
+
+let program file_name =
+  let input = read_file_as_string file_name in
+    statements input 0 EOF
+
+let parse_and_print_program file_name =
+  match program file_name with
+  | `Error -> Printf.printf "Error parsing programm\n"
+  | `Success (statements,_) -> 
+    print_statements_levels statements 0
 
 (* example *)
-let () =
+(* let () =
   let input = read_file_as_string "test/test_input.txt" in
-  parse_and_print input
+  parse_and_print input *)
 
   (* outside parser calling inside parsers of assignment, while or if 
      if any of them is true than call outside parser from current inside position
@@ -216,3 +315,7 @@ let () =
 (* let() =
   let input = read_file_as_string "test/test_comporision2_input.txt" in
     parse_and_print_comparision input *)
+
+(* statements/program example *)
+(* let () =
+     parse_and_print_program "test/test_full_program_input_txt" *)

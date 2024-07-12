@@ -1,0 +1,8 @@
+while k > n do
+    if k < a then 
+        z`` 
+        v`` 
+    else 
+    fi 
+    q`` 
+done
