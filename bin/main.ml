@@ -138,6 +138,8 @@ and factor text pos =
     `Error
 
 (* Pascal-like: [=] - equal, [<>] - not equal, [<], [<=], [>], [>=]  *)
+(* (Ksenia): "<" has three combinations so it is moved to outer function.
+   note: it would prob be more beautiful to move ">" out too*)
 let comp_oper text pos =
   let after_less_oper  =
     let pos = ws text (pos + 1) in
@@ -158,6 +160,8 @@ let comp_oper text pos =
       else `Success (Greater, pos)
     | _ -> `Error
 
+(* (Ksenia): take first expr, try to find comp oper, 
+   combine it with second expr to form comparison *)
 let comparision text pos =
   match expr text pos with 
   | `Error -> `Error
@@ -172,6 +176,8 @@ let comparision text pos =
 type end_marker = EOF | Word of string
 
 (* wdd = while-do-done, itef = if-then-else-fi *)
+(* (Ksenia): defines kind of statement by starting keyword 
+   and calls corresponding func *)
 let rec statements text pos end_marker =
   if pos >= find_len text && end_marker == EOF then `Success (Nothing, pos)
   else match ident_or_keyword text pos with
@@ -184,15 +190,55 @@ let rec statements text pos end_marker =
       | Word id -> 
         if (is_keyword id) then `Error
         else assignment_and_tail text pos (Ident id) end_marker
-      | _ -> `Error (* unreacheable *)
+      | _ -> `Error (* unreacheable *) (* (Ksenia): because "id" is alias for all other words? *)
         
-and assignment_and_tail text pos id prev_end_marker =
-  (*fake implementation, you have to do*)
-  match statements text (pos + 2) prev_end_marker with
-  | `Error -> `Error 
-  | `Success(st, pos) ->
-    `Success (Assignment_and_tail ((id, Const 88), st), pos)
+and parse_assignment text pos ident prev_end_marker =
+  let pos = ws text pos in
+  if pos < find_len text && text.[pos] = ':' && pos + 1 < find_len text && text.[pos + 1] = '=' then
+    let pos = ws text (pos + 2) in
+    match expr text pos with
+    | `Error -> `Error
+    | `Success (e, pos) ->
+        let pos = ws text pos in
+        if pos < find_len text && text.[pos] = ';' then
+          `Success (Assignment_and_tail ((ident, e), Nothing), pos + 1)
+        else
+          `Error
+  else
+    `Error
 
+and assignment_and_tail text pos id prev_end_marker =
+  match parse_assignment text pos id prev_end_marker with
+  | `Error -> `Error
+  | `Success (assignment, pos) ->
+      match statements text pos prev_end_marker with
+      | `Error -> `Error
+      | `Success (tail, pos) ->
+          `Success (Assignment_and_tail ((id, match assignment with Assignment_and_tail ((_, e), _) -> e | _ -> failwith "Unreachable"), tail), pos)
+
+(* (Ksenia): first version, wanna save it until im sure it is useless :)
+  and assignment_and_tail text pos id prev_end_marker =
+  let pos = ws text pos in
+  if pos >= find_len text then `Error
+  else if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
+    let pos = ws text (pos + 2) in
+    match expr text pos with
+    | `Error -> `Error
+    | `Success (exp, pos) ->
+      let pos = ws text pos in
+      if pos < find_len text && text.[pos] = ';' then
+        let pos = ws text (pos + 1) in
+        match statements text pos prev_end_marker with
+        | `Error -> `Error
+        | `Success (st, pos) ->
+          `Success (Assignment_and_tail ((id, exp), st), pos)
+      else `Error
+  else `Error
+*)
+
+(* (Ksenia): forms a statement out of first found comparison 
+   and given start/end marker to define the statement. 
+   Additionaly forms tree of nested statements *)
 and comp_and_statements text pos statements_start_word statements_end_marker = (*common part of wdd & itef*)
   match comparision text pos with
   | `Error -> `Error
@@ -204,6 +250,8 @@ and comp_and_statements text pos statements_start_word statements_end_marker = (
       | `Success (st, pos)-> `Success (comp_tree, st, pos))
     | _ -> `Error)
 
+(* forms while-statement and searches for nested statements.
+   prev_end_marker here is end marker from statement func. *)
 and wdd_and_tail text pos prev_end_marker = 
   match comp_and_statements text pos "do" (Word "done") with
   | `Error -> `Error
@@ -317,5 +365,5 @@ let parse_and_print_program file_name =
     parse_and_print_comparision input *)
 
 (* statements/program example *)
-(* let () =
-     parse_and_print_program "test/test_full_program_input_txt" *)
+let () =
+     parse_and_print_program "test/test_full_program_input.txt" 
