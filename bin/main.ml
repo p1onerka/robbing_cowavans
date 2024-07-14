@@ -1,4 +1,4 @@
-type ariphm_oper = Plus | Multiply | Divide
+type ariphm_oper = Plus | Minus | Multiply | Divide
 
 (* tree construction for every expression which can be const or expr (then root is statement) *)
 type expr =
@@ -93,6 +93,10 @@ and expr_tail left text pos =
     match term text (pos + 1) with
     | `Error -> `Error
     | `Success (right, pos) -> expr_tail (Binop (Plus, left, right)) text pos
+  else if pos < find_len text && text.[pos] = '-' then
+    match term text (pos + 1) with
+    | `Error -> `Error
+    | `Success (right, pos) -> expr_tail (Binop (Minus, left, right)) text pos
   else
   (* expression can be single term *)
     `Success (left, pos)
@@ -110,6 +114,10 @@ and term_tail left text pos =
     match factor text (pos + 1) with
     | `Error -> `Error
     | `Success (right, pos) -> term_tail (Binop (Multiply, left, right)) text pos
+  else if pos < find_len text && text.[pos] = '/' then
+    match factor text (pos + 1) with
+    | `Error -> `Error
+    | `Success (right, pos) -> term_tail (Binop (Divide, left, right)) text pos
   else
     `Success (left, pos)
 
@@ -190,8 +198,9 @@ let rec statements text pos end_marker =
       | Word id -> 
         if (is_keyword id) then `Error
         else assignment_and_tail text pos (Ident id) end_marker
-      | _ -> `Error (* unreacheable *) (* (Ksenia): because "id" is alias for all other words? *)
-        
+      | EOF -> `Error (* unreacheable *) 
+       
+(* (Ksenia): second version, wanna save it until im sure it is useless :)
 and parse_assignment text pos ident prev_end_marker =
   let pos = ws text pos in
   if pos < find_len text && text.[pos] = ':' && pos + 1 < find_len text && text.[pos + 1] = '=' then
@@ -215,26 +224,25 @@ and assignment_and_tail text pos id prev_end_marker =
       | `Error -> `Error
       | `Success (tail, pos) ->
           `Success (Assignment_and_tail ((id, match assignment with Assignment_and_tail ((_, e), _) -> e | _ -> failwith "Unreachable"), tail), pos)
-
-(* (Ksenia): first version, wanna save it until im sure it is useless :)
-  and assignment_and_tail text pos id prev_end_marker =
-  let pos = ws text pos in
-  if pos >= find_len text then `Error
-  else if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
-    let pos = ws text (pos + 2) in
-    match expr text pos with
-    | `Error -> `Error
-    | `Success (exp, pos) ->
-      let pos = ws text pos in
-      if pos < find_len text && text.[pos] = ';' then
-        let pos = ws text (pos + 1) in
-        match statements text pos prev_end_marker with
-        | `Error -> `Error
-        | `Success (st, pos) ->
-          `Success (Assignment_and_tail ((id, exp), st), pos)
-      else `Error
-  else `Error
 *)
+
+and assignment_and_tail text pos ident prev_end_marker =
+let pos = ws text pos in
+if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
+  let pos = ws text (pos + 2) in
+  match expr text pos with
+  | `Error -> `Error
+  | `Success (exp, pos) ->
+    let pos = ws text pos in
+    if pos < find_len text && text.[pos] = ';' then
+      let pos = ws text (pos + 1) in
+      match statements text pos prev_end_marker with
+      | `Error -> `Error
+      | `Success (st, pos) ->
+        `Success (Assignment_and_tail ((ident, exp), st), pos)
+    else `Error
+else `Error
+
 
 (* (Ksenia): forms a statement out of first found comparison 
    and given start/end marker to define the statement. 
@@ -250,8 +258,6 @@ and comp_and_statements text pos statements_start_word statements_end_marker = (
       | `Success (st, pos)-> `Success (comp_tree, st, pos))
     | _ -> `Error)
 
-(* forms while-statement and searches for nested statements.
-   prev_end_marker here is end marker from statement func. *)
 and wdd_and_tail text pos prev_end_marker = 
   match comp_and_statements text pos "do" (Word "done") with
   | `Error -> `Error
@@ -286,7 +292,7 @@ let rec print_expr_levels expr level =
   | Var v -> Printf.printf "%sVar %s\n" (String.make (level * 2) ' ') v
   | Binop (op, left, right) ->
       Printf.printf "%sBinop %s\n" (String.make (level * 2) ' ') 
-        (match op with Plus -> "+" | Multiply -> "*" | Divide -> "/");
+        (match op with Plus -> "+" | Minus -> "-" | Multiply -> "*" | Divide -> "/");
       print_expr_levels left (level + 1);
       print_expr_levels right (level + 1)
 
