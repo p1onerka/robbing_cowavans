@@ -33,6 +33,7 @@ let is_whitespace c = c = ' ' || c = '\t' || c = '\n' || c = '\r'
 
 let is_alpha c = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_')
 
+(* ws = whitespaces *)
 let find_ws text pos =
   let length = find_len text in
   let rec skip pos =
@@ -80,13 +81,14 @@ let find_ident text pos =
         `Success (Var (Ident s), new_pos)
   | `Error -> `Error
 
-(* expression is name for terms connected with + *)
+(* expression is name for terms connected with +/- *)
 let rec find_expr text pos =
   let pos = find_ws text pos in
   match find_term text pos with
   | `Error -> `Error
   | `Success (left, pos) -> find_expr_tail left text pos
 
+(* here: tail is term or expr in brackets taking place after +/- *)
 and find_expr_tail left text pos =
   let pos = find_ws text pos in
   if pos < find_len text && text.[pos] = '+' then
@@ -101,7 +103,7 @@ and find_expr_tail left text pos =
   (* expression can be single term *)
     `Success (left, pos)
 
-(* term is name for some factors connected with *\ *)
+(* term is name for some factors connected with *\/ *)
 and find_term text pos =
   let pos = find_ws text pos in
   match find_factor text pos with
@@ -122,7 +124,6 @@ and find_term_tail left text pos =
     `Success (left, pos)
 
 (* factor is name for atomic term: const, var, smth in brackets *)
-(* main idea is that factors are calculated to the time of operation *)
 and find_factor text pos =
   let pos = find_ws text pos in
   (* expr in brackets *)
@@ -170,7 +171,7 @@ and find_factor text pos =
       | '>' -> find_after_right_oper
       | _ -> `Error
 
-(* (Ksenia): take first expr, try to find comp oper, 
+(* take first expr, try to find comp oper, 
    combine it with second expr to form comparison *)
 let find_comparision text pos =
   match find_expr text pos with 
@@ -186,7 +187,7 @@ let find_comparision text pos =
 type end_marker = EOF | Word of string
 
 (* wdd = while-do-done, itef = if-then-else-fi *)
-(* (Ksenia): defines kind of statement by starting keyword 
+(* defines kind of statement by starting keyword 
    and calls corresponding func *)
 let rec find_statements text pos end_marker =
   if pos >= find_len text && end_marker == EOF then `Success (Nothing, pos)
@@ -246,10 +247,10 @@ if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
 else `Error
 
 
-(* (Ksenia): forms a statement out of first found comparison 
-   and given start/end marker to define the statement. 
+(* forms a statement out of first found comparison 
+   and given start/end marker (which are common part of wdd/ited statements) to define the statement. 
    Additionaly forms tree of nested statements *)
-and find_comp_and_nested_statements text pos statements_start_word statements_end_marker = (*common part of wdd & itef*)
+and find_comp_and_nested_statements text pos statements_start_word statements_end_marker = 
   match find_comparision text pos with
   | `Error -> `Error
   | `Success (comp_tree, pos) ->
@@ -260,6 +261,8 @@ and find_comp_and_nested_statements text pos statements_start_word statements_en
       | `Success (st, pos)-> `Success (comp_tree, st, pos))
     | _ -> `Error)
 
+(* parses completely insides of wdd/itef statement and forms its "tail":
+   link to next statement of program on current level (in current block) *)
 and wdd_and_tail text pos prev_end_marker = 
   match find_comp_and_nested_statements text pos "do" (Word "done") with
   | `Error -> `Error
@@ -287,6 +290,12 @@ let read_file_as_string filename =
   let s = really_input_string ic n in
   close_in ic;
   s
+
+let program file_name =
+  let input = read_file_as_string file_name in
+    find_statements input 0 EOF
+
+(* debug print functions, need to be removed later *)
 
 let rec print_expr_levels expr level =
   match expr with
@@ -344,17 +353,14 @@ let rec print_statements_levels statements level =
     print_statements_levels tail (level + 1)
   | Nothing -> Printf.printf "%s%s\n" (String.make (level * 2) ' ') "Nothing"
 
-let program file_name =
-  let input = read_file_as_string file_name in
-    find_statements input 0 EOF
-
 let parse_and_print_program file_name =
   match program file_name with
   | `Error -> Printf.printf "Error parsing programm\n"
   | `Success (statements,_) -> 
     print_statements_levels statements 0
 
-(* example *)
+(* EXAMPLES/test calls, need to be removed later *)
+
 (* let () =
   let input = read_file_as_string "test/test_input.txt" in
   parse_and_print input *)
@@ -367,11 +373,10 @@ let parse_and_print_program file_name =
 (*comparision examples *)
 (* let() =
   let input = read_file_as_string "test/test_comporision1_input.txt" in
-    parse_and_print_comparision input *)
+    parse_and_print_comparision input 
 (* let() =
   let input = read_file_as_string "test/test_comporision2_input.txt" in
-    parse_and_print_comparision input *)
-
+    parse_and_print_comparision input *) *)
 (* statements/program example *)
 (* let () =
      parse_and_print_program "test/test_full_program_input.txt"  *)
