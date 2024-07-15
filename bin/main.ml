@@ -1,6 +1,5 @@
 type ariphm_oper = Plus | Minus | Multiply | Divide
 
-(* tree construction for every expression which can be const or expr (then root is statement) *)
 type expr =
   | Const of int
   | Var of string
@@ -24,8 +23,7 @@ type statements =
   | If_Then_Else_Fi_and_tail of (comparision * statements * statements) * statements
   | Nothing
 
-let find_len s = 
-  String.length s
+let find_len s = String.length s
 
 let is_digit c = c >= '0' && c <= '9'
 
@@ -33,7 +31,7 @@ let is_whitespace c = c = ' ' || c = '\t' || c = '\n' || c = '\r'
 
 let is_alpha c = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_')
 
-let ws text pos =
+let find_ws text pos =
   let length = find_len text in
   let rec skip pos =
     if pos < length && is_whitespace text.[pos] then skip (pos + 1)
@@ -41,7 +39,7 @@ let ws text pos =
   in
   skip pos
 
-let econst text pos =
+let find_const text pos =
   let length = find_len text in
   let rec acc_num pos acc =
     if pos < length && is_digit text.[pos] then
@@ -54,8 +52,8 @@ let econst text pos =
   in
   acc_num pos ""
 
-let ident_or_keyword text pos =
-  let pos = ws text pos in
+let find_ident_or_keyword text pos =
+  let pos = find_ws text pos in
   let length = find_len text in
   let rec acc_id pos acc =
     if pos < length && is_alpha text.[pos] then
@@ -71,8 +69,8 @@ let ident_or_keyword text pos =
 let is_keyword s =
   s = "while" || s = "do" || s = "done" || s = "if" || s = "then" || s = "else" || s = "fi"
 
-let ident text pos =
-  match ident_or_keyword text pos with
+let find_ident text pos =
+  match find_ident_or_keyword text pos with
   | `Success (s, new_pos) ->
       if is_keyword s then
         `Error
@@ -81,66 +79,66 @@ let ident text pos =
   | `Error -> `Error
 
 (* expression is name for terms connected with + *)
-let rec expr text pos =
-  let pos = ws text pos in
-  match term text pos with
+let rec find_expr text pos =
+  let pos = find_ws text pos in
+  match find_term text pos with
   | `Error -> `Error
-  | `Success (left, pos) -> expr_tail left text pos
+  | `Success (left, pos) -> find_expr_tail left text pos
 
-and expr_tail left text pos =
-  let pos = ws text pos in
+and find_expr_tail left text pos =
+  let pos = find_ws text pos in
   if pos < find_len text && text.[pos] = '+' then
-    match term text (pos + 1) with
+    match find_term text (pos + 1) with
     | `Error -> `Error
-    | `Success (right, pos) -> expr_tail (Binop (Plus, left, right)) text pos
+    | `Success (right, pos) -> find_expr_tail (Binop (Plus, left, right)) text pos
   else if pos < find_len text && text.[pos] = '-' then
-    match term text (pos + 1) with
+    match find_term text (pos + 1) with
     | `Error -> `Error
-    | `Success (right, pos) -> expr_tail (Binop (Minus, left, right)) text pos
+    | `Success (right, pos) -> find_expr_tail (Binop (Minus, left, right)) text pos
   else
   (* expression can be single term *)
     `Success (left, pos)
 
 (* term is name for some factors connected with *\ *)
-and term text pos =
-  let pos = ws text pos in
-  match factor text pos with
+and find_term text pos =
+  let pos = find_ws text pos in
+  match find_factor text pos with
   | `Error -> `Error
-  | `Success (left, pos) -> term_tail left text pos
+  | `Success (left, pos) -> find_term_tail left text pos
 
-and term_tail left text pos =
-  let pos = ws text pos in
+and find_term_tail left text pos =
+  let pos = find_ws text pos in
   if pos < find_len text && text.[pos] = '*' then
-    match factor text (pos + 1) with
+    match find_factor text (pos + 1) with
     | `Error -> `Error
-    | `Success (right, pos) -> term_tail (Binop (Multiply, left, right)) text pos
+    | `Success (right, pos) -> find_term_tail (Binop (Multiply, left, right)) text pos
   else if pos < find_len text && text.[pos] = '/' then
-    match factor text (pos + 1) with
+    match find_factor text (pos + 1) with
     | `Error -> `Error
-    | `Success (right, pos) -> term_tail (Binop (Divide, left, right)) text pos
+    | `Success (right, pos) -> find_term_tail (Binop (Divide, left, right)) text pos
   else
     `Success (left, pos)
 
 (* factor is name for atomic term: const, var, smth in brackets *)
 (* main idea is that factors are calculated to the time of operation *)
-and factor text pos =
-  let pos = ws text pos in
+and find_factor text pos =
+  let pos = find_ws text pos in
   (* expr in brackets *)
   if pos < find_len text && text.[pos] = '(' then
-    match expr text (pos + 1) with
+    match find_expr text (pos + 1) with
     | `Error -> `Error
     | `Success (e, pos) ->
-        let pos = ws text pos in
+        let pos = find_ws text pos in
         if pos < find_len text && text.[pos] = ')' then
           `Success (e, pos + 1)
         else
           `Error
   (* single const *)
   else if pos < find_len text && is_digit text.[pos] then
-    econst text pos
+    find_const text pos
   (* identificator aka var *)
   else if pos < find_len text && is_alpha text.[pos] then
-    ident text pos
+    find_ident text pos
   (* unknown token *)
   else
     `Error
@@ -148,21 +146,21 @@ and factor text pos =
 (* Pascal-like: [=] - equal, [<>] - not equal, [<], [<=], [>], [>=]  *)
 (* (Ksenia): "<" has three combinations so it is moved to outer function.
    note: it would prob be more beautiful to move ">" out too*)
-let comp_oper text pos =
+let find_comp_oper text pos =
   let after_less_oper  =
-    let pos = ws text (pos + 1) in
+    let pos = find_ws text (pos + 1) in
       if pos >= find_len text then `Success (Less, pos)
       else match text.[pos] with
       | '>' -> `Success (Not_equal, pos + 1)
       | '=' -> `Success (Less_or_equal, pos + 1)
       | _ -> `Success (Less, pos)
   in
-  let pos = ws text pos in
+  let pos = find_ws text pos in
   if pos >= find_len text then `Error
   else match text.[pos] with 
     | '=' -> `Success (Equal, pos + 1)
     | '<' -> after_less_oper
-    | '>' -> let pos = ws text (pos + 1) in
+    | '>' -> let pos = find_ws text (pos + 1) in
       if pos < find_len text && text.[pos] == '=' then
         `Success (Greater_or_equal, pos + 1)
       else `Success (Greater, pos)
@@ -170,14 +168,14 @@ let comp_oper text pos =
 
 (* (Ksenia): take first expr, try to find comp oper, 
    combine it with second expr to form comparison *)
-let comparision text pos =
-  match expr text pos with 
+let find_comparision text pos =
+  match find_expr text pos with 
   | `Error -> `Error
   | `Success (e1, pos) ->
-    match comp_oper text pos with
+    match find_comp_oper text pos with
     | `Error -> `Error
     | `Success (c_op, pos) -> 
-      match expr text pos with
+      match find_expr text pos with
       | `Error -> `Error
       | `Success (e2, pos)-> `Success (Comparision (c_op, e1, e2), pos)
 
@@ -186,9 +184,9 @@ type end_marker = EOF | Word of string
 (* wdd = while-do-done, itef = if-then-else-fi *)
 (* (Ksenia): defines kind of statement by starting keyword 
    and calls corresponding func *)
-let rec statements text pos end_marker =
+let rec find_statements text pos end_marker =
   if pos >= find_len text && end_marker == EOF then `Success (Nothing, pos)
-  else match ident_or_keyword text pos with
+  else match find_ident_or_keyword text pos with
     | `Error -> `Error
     | `Success (id_or_kw, pos) ->
       match Word id_or_kw with
@@ -202,13 +200,13 @@ let rec statements text pos end_marker =
        
 (* (Ksenia): second version, wanna save it until im sure it is useless :)
 and parse_assignment text pos ident prev_end_marker =
-  let pos = ws text pos in
+  let pos = find_ws text pos in
   if pos < find_len text && text.[pos] = ':' && pos + 1 < find_len text && text.[pos + 1] = '=' then
-    let pos = ws text (pos + 2) in
+    let pos = find_ws text (pos + 2) in
     match expr text pos with
     | `Error -> `Error
     | `Success (e, pos) ->
-        let pos = ws text pos in
+        let pos = find_ws text pos in
         if pos < find_len text && text.[pos] = ';' then
           `Success (Assignment_and_tail ((ident, e), Nothing), pos + 1)
         else
@@ -227,16 +225,16 @@ and assignment_and_tail text pos id prev_end_marker =
 *)
 
 and assignment_and_tail text pos ident prev_end_marker =
-let pos = ws text pos in
+let pos = find_ws text pos in
 if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
-  let pos = ws text (pos + 2) in
-  match expr text pos with
+  let pos = find_ws text (pos + 2) in
+  match find_expr text pos with
   | `Error -> `Error
   | `Success (exp, pos) ->
-    let pos = ws text pos in
+    let pos = find_ws text pos in
     if pos < find_len text && text.[pos] = ';' then
-      let pos = ws text (pos + 1) in
-      match statements text pos prev_end_marker with
+      let pos = find_ws text (pos + 1) in
+      match find_statements text pos prev_end_marker with
       | `Error -> `Error
       | `Success (st, pos) ->
         `Success (Assignment_and_tail ((ident, exp), st), pos)
@@ -247,34 +245,34 @@ else `Error
 (* (Ksenia): forms a statement out of first found comparison 
    and given start/end marker to define the statement. 
    Additionaly forms tree of nested statements *)
-and comp_and_statements text pos statements_start_word statements_end_marker = (*common part of wdd & itef*)
-  match comparision text pos with
+and find_comp_and_nested_statements text pos statements_start_word statements_end_marker = (*common part of wdd & itef*)
+  match find_comparision text pos with
   | `Error -> `Error
   | `Success (comp_tree, pos) ->
-    (match ident_or_keyword text pos with
+    (match find_ident_or_keyword text pos with
     | `Success (ssw, pos) when ssw = statements_start_word ->
-      (match statements text pos statements_end_marker with
+      (match find_statements text pos statements_end_marker with
       | `Error -> `Error
       | `Success (st, pos)-> `Success (comp_tree, st, pos))
     | _ -> `Error)
 
 and wdd_and_tail text pos prev_end_marker = 
-  match comp_and_statements text pos "do" (Word "done") with
+  match find_comp_and_nested_statements text pos "do" (Word "done") with
   | `Error -> `Error
   | `Success (comp_tree, st, pos)->
-    match statements text pos prev_end_marker  with
+    match find_statements text pos prev_end_marker  with
     | `Error -> `Error
     | `Success (tail, pos) -> 
       `Success (While_Do_Done_and_tail ((comp_tree, st), tail), pos)
 
 and itef_and_tail text pos prev_end_marker = 
-  match comp_and_statements text pos "then" (Word "else") with
+  match find_comp_and_nested_statements text pos "then" (Word "else") with
   | `Error -> `Error
   | `Success (comp_tree, st1, pos)-> 
-    (match statements text pos (Word "fi") with
+    (match find_statements text pos (Word "fi") with
     | `Error -> `Error
     | `Success (st2, pos)->
-      (match statements text pos prev_end_marker  with
+      (match find_statements text pos prev_end_marker  with
       | `Error -> `Error
       | `Success (tail, pos) -> 
         `Success (If_Then_Else_Fi_and_tail ((comp_tree, st1, st2), tail), pos)))
@@ -297,7 +295,7 @@ let rec print_expr_levels expr level =
       print_expr_levels right (level + 1)
 
 let parse_and_print text =
-  match expr text 0 with
+  match find_expr text 0 with
   | `Error -> Printf.printf "Error parsing expression\n"
   | `Success (ast, _) -> 
       print_expr_levels ast 0
@@ -317,7 +315,7 @@ let print_comporision_levels comparision level =
   print_expr_levels right (level + 1)
 
 let parse_and_print_comparision text  =
-  match comparision text 0 with
+  match find_comparision text 0 with
   | `Error -> Printf.printf "Error parsing comporission\n"
   | `Success (comparision, _) -> 
     print_comporision_levels comparision 0
@@ -344,7 +342,7 @@ let rec print_statements_levels statements level =
 
 let program file_name =
   let input = read_file_as_string file_name in
-    statements input 0 EOF
+    find_statements input 0 EOF
 
 let parse_and_print_program file_name =
   match program file_name with
