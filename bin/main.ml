@@ -146,25 +146,27 @@ and find_factor text pos =
 (* Pascal-like: [=] - equal, [<>] - not equal, [<], [<=], [>], [>=]  *)
 (* (Ksenia): "<" has three combinations so it is moved to outer function.
    note: it would prob be more beautiful to move ">" out too*)
-let find_comp_oper text pos =
-  let after_less_oper  =
-    let pos = find_ws text (pos + 1) in
-      if pos >= find_len text then `Success (Less, pos)
-      else match text.[pos] with
-      | '>' -> `Success (Not_equal, pos + 1)
-      | '=' -> `Success (Less_or_equal, pos + 1)
-      | _ -> `Success (Less, pos)
-  in
-  let pos = find_ws text pos in
-  if pos >= find_len text then `Error
-  else match text.[pos] with 
-    | '=' -> `Success (Equal, pos + 1)
-    | '<' -> after_less_oper
-    | '>' -> let pos = find_ws text (pos + 1) in
-      if pos < find_len text && text.[pos] == '=' then
-        `Success (Greater_or_equal, pos + 1)
-      else `Success (Greater, pos)
-    | _ -> `Error
+   let find_comp_oper text pos =
+    let find_after_less_oper =
+      if pos + 1 >= find_len text then `Success (Less, pos)
+      else match text.[pos + 1] with
+      | '>' -> `Success (Not_equal, pos + 2)
+      | '=' -> `Success (Less_or_equal, pos + 2)
+      | _ -> `Success (Less, pos + 1)
+    in
+    let find_after_right_oper =
+      if pos + 1 >= find_len text then `Success (Greater, pos)
+      else match text.[pos + 1] with
+      | '=' -> `Success (Greater_or_equal, pos + 2)
+      | _ -> `Success (Greater, pos + 1)
+    in
+    let pos = find_ws text pos in
+    if pos >= find_len text then `Error
+    else match text.[pos] with 
+      | '=' -> `Success (Equal, pos + 1)
+      | '<' -> find_after_less_oper
+      | '>' -> find_after_right_oper
+      | _ -> `Error
 
 (* (Ksenia): take first expr, try to find comp oper, 
    combine it with second expr to form comparison *)
