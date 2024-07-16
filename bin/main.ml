@@ -1,8 +1,12 @@
+open List
+
 type ariphm_oper = Plus | Minus | Multiply | Divide
+
+type ident = Ident of string
 
 type expr =
   | Const of int
-  | Var of string
+  | Var of ident
   | Binop of ariphm_oper * expr * expr
 
 type comp_oper = 
@@ -11,11 +15,9 @@ type comp_oper =
   | Less_or_equal
   | Greater_or_equal
   | Equal
-  | Not_equal
+  | Not_equal 
 
 type comparision = Comparision of comp_oper * expr * expr
-
-type ident = Ident of string
 
 type statements = 
   | Assignment_and_tail of (ident * expr) * statements
@@ -75,7 +77,7 @@ let find_ident text pos =
       if is_keyword s then
         `Error
       else
-        `Success (Var s, new_pos)
+        `Success (Var (Ident s), new_pos)
   | `Error -> `Error
 
 (* expression is name for terms connected with + *)
@@ -289,18 +291,18 @@ let read_file_as_string filename =
 let rec print_expr_levels expr level =
   match expr with
   | Const n -> Printf.printf "%sConst %d\n" (String.make (level * 2) ' ') n
-  | Var v -> Printf.printf "%sVar %s\n" (String.make (level * 2) ' ') v
+  | Var Ident v -> Printf.printf "%sVar %s\n" (String.make (level * 2) ' ') v
   | Binop (op, left, right) ->
       Printf.printf "%sBinop %s\n" (String.make (level * 2) ' ') 
         (match op with Plus -> "+" | Minus -> "-" | Multiply -> "*" | Divide -> "/");
       print_expr_levels left (level + 1);
-      print_expr_levels right (level + 1)
+      print_expr_levels right (level + 1) 
 
 let parse_and_print text =
   match find_expr text 0 with
   | `Error -> Printf.printf "Error parsing expression\n"
   | `Success (ast, _) -> 
-      print_expr_levels ast 0
+    print_expr_levels ast 0
 
 let print_comporision_levels comparision level =
   let Comparision (c_op, left, right) = comparision in
@@ -371,5 +373,86 @@ let parse_and_print_program file_name =
     parse_and_print_comparision input *)
 
 (* statements/program example *)
-let () =
-     parse_and_print_program "test/test_full_program_input.txt" 
+(* let () =
+     parse_and_print_program "test/test_full_program_input.txt"  *)
+
+
+
+
+let codegen program =
+  let regs = ["a0"; "a1"; "a2"; "a3"; "a4"; "a5"; "a6"; "a7";
+ "a8"; "t0"; "t1"; "t2"; "t3"; "t4"; "t5"; "t6"] in
+  let regs_len = List.length regs in
+  let rec codegen_expr ?(reg = 0) expr vars =
+    match expr with
+    | Const x -> Printf.printf "li %s, %d\n" (List.nth regs reg) x
+    | Var Ident id ->
+      (match List.find_opt (fun var -> String.equal id (fst var)) vars with
+      | Some var  -> Printf.printf "ld %s, %d(s0)\n" (List.nth regs reg) (snd var)
+      | None -> failwith ("can't find variable '" ^ id ^ "' definition"))
+    | Binop (op, e1, e2) -> 
+      if (reg + 1) >= regs_len then failwith "too much nested expressions" else
+        codegen_expr ~reg:(reg) e1 vars;
+        codegen_expr ~reg:(reg + 1) e2 vars;
+        let reg1 = (List.nth regs reg)
+        in
+        let reg2 = (List.nth regs (reg + 1))
+        in
+        let print_ariphm_comand com =
+          Printf.printf "%s %s, %s, %s\n" com reg1 reg1 reg2
+      in
+      print_ariphm_comand
+        (match op with
+        | Plus -> "add"
+        | Minus -> "sub";
+        | Multiply -> "mul";
+        | Divide -> "div")
+  in
+  let rec codegen_assignment ass_and_tail vars stack_memmory_left =
+    let (Ident id, expr), tail = ass_and_tail in
+      codegen_expr expr vars;
+      match List.find_opt (fun var -> String.equal id (fst var)) vars with
+      | Some var ->  
+        Printf.printf "sd a0, %d(s0)" (snd var);
+         codegen_statements  tail vars stack_memmory_left
+      | None -> 
+        let offest =  match vars with
+          | [] -> -8 
+          | not_empty_list ->
+            (snd (List.nth  not_empty_list 0) - 8)
+        in
+        let stack_memmory_left =
+          match stack_memmory_left < 8 with 
+          |true -> Printf.printf "addi sp, sp, -32\n";
+            stack_memmory_left + 24 - 8 (*make stack 24bytes larger*)
+          |false -> stack_memmory_left - 8
+        in
+        let vars = (id, offest) :: vars in
+        Printf.printf "sd a0, %d(s0)\n" offest;
+        codegen_statements tail vars stack_memmory_left
+  and codegen_statements statements vars stack_memmory_left =
+    match statements with
+    | Assignment_and_tail (a,t) -> codegen_assignment (a,t) vars stack_memmory_left
+    | Nothing -> ()
+    | _ -> failwith "not yet implemented"
+  in
+  let stack_memmory_left = 24 in
+  Printf.printf ".global _start\n\n_start:\n";
+  Printf.printf "addi sp, sp, -%d\naddi s0, sp, %d\n" stack_memmory_left stack_memmory_left;
+  codegen_statements program [] stack_memmory_left;
+  (*while only assignment and expressions are implemented: the line below returns <last var> % 256*)
+  Printf.printf "li a1, 256\nrem a0, a0, a1\nli a7, 93\necall" 
+
+(* let() =
+  let inp = read_file_as_string "test/test_input.txt" in
+    parse_and_print inp;
+    match find_expr (inp) 0 with
+    | `Success (expr, _) -> codegen_expr expr
+    |  `Error -> failwith "" *)
+
+(* assignments and expressions codegen example *)
+let() =
+    parse_and_print_program "test/test_ass_and_expr_codegen_input.txt";
+    match program "test/test_input.txt" with
+    |`Error -> failwith ""
+    | `Success (prog,_) -> codegen prog
