@@ -440,6 +440,20 @@ let codegen program =
     | Assignment_and_tail (a,t) -> codegen_assignment (a,t) vars stack_memmory_left
     | Nothing -> ()
     | _ -> failwith "not yet implemented"
+  and codegen_branching comparision vars else_branch_label =
+    let Comparision (comp_op, expr1, expr2) = comparision in
+    codegen_expr expr1 vars;
+    codegen_expr ~reg:1 expr2 vars;
+    let branching_op =
+      match comp_op with
+      | Not_equal -> "beq"
+      | Equal -> "bne"
+      | Less_or_equal -> "bgt"
+      | Less -> "bge"
+      | Greater_or_equal -> "blt"
+      | Greater -> "ble"
+    in
+      Printf.printf "%s a0, a1, %s\n" branching_op else_branch_label
   in
   let stack_memmory_left = 24 in
   Printf.printf ".global _start\n\n_start:\n";
