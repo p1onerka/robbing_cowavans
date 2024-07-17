@@ -1,3 +1,6 @@
+open Parser.Readfile 
+open Codegen_riscv64.Codegen
+(*
 open List
 
 type ariphm_oper = Plus | Minus | Multiply | Divide
@@ -384,6 +387,9 @@ let parse_and_print_program file_name =
 (* let () =
      parse_and_print_program "test/test_full_program_input.txt"  *)
 
+*)
+
+(*
 let codegen program =
   let regs = ["a0"; "a1"; "a2"; "a3"; "a4"; "a5"; "a6"; "a7";
  "a8"; "t0"; "t1"; "t2"; "t3"; "t4"; "t5"; "t6"] in
@@ -513,9 +519,11 @@ let codegen program =
     | `Success (expr, _) -> codegen_expr expr
     |  `Error -> failwith "" *)
 
+*)
+
 (* assignments and expressions codegen example *)
 let() =
-    parse_and_print_program "test/test_parce_and_codegen_program.txt";
+    (* parse_and_print_program "test/test_parce_and_codegen_program.txt"; *)
     match program "test/test_parce_and_codegen_program.txt" with
     |`Error -> failwith ""
     | `Success (prog,_) -> codegen prog
