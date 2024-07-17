@@ -458,6 +458,6 @@ let codegen program =
 (* assignments and expressions codegen example *)
 let() =
     parse_and_print_program "test/test_ass_and_expr_codegen_input.txt";
-    match program "test/test_input.txt" with
+    match program "test/test_ass_and_expr_codegen_input.txt" with
     |`Error -> failwith ""
     | `Success (prog,_) -> codegen prog
