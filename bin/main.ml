@@ -22,7 +22,7 @@ type comparision = Comparision of comp_oper * expr * expr
 type statements = 
   | Assignment_and_tail of (ident * expr) * statements
   | While_Do_Done_and_tail of (comparision * statements * int) * statements
-  | If_Then_Else_Fi_and_tail of (comparision * statements * statements) * statements
+  | If_Then_Else_Fi_and_tail of (comparision * statements * statements * int) * statements
   | Nothing
 
 let find_len s = String.length s
@@ -265,16 +265,17 @@ and find_comp_and_nested_statements text pos statements_start_word statements_en
 (* parses completely insides of wdd/itef statement and forms its "tail":
    link to next statement of program on current level (in current block) *)
 and wdd_and_tail text pos prev_end_marker = 
-  let pos_acc = pos in
+  let start_pos = pos in
   match find_comp_and_nested_statements text pos "do" (Word "done") with
   | `Error -> `Error
   | `Success (comp_tree, st, pos)->
     match find_statements text pos prev_end_marker  with
     | `Error -> `Error
     | `Success (tail, pos) -> 
-      `Success (While_Do_Done_and_tail ((comp_tree, st, pos_acc), tail), pos)
+      `Success (While_Do_Done_and_tail ((comp_tree, st, start_pos), tail), pos)
 
-and itef_and_tail text pos prev_end_marker = 
+and itef_and_tail text pos prev_end_marker =
+  let start_pos = pos in 
   match find_comp_and_nested_statements text pos "then" (Word "else") with
   | `Error -> `Error
   | `Success (comp_tree, st1, pos)-> 
@@ -284,7 +285,7 @@ and itef_and_tail text pos prev_end_marker =
       (match find_statements text pos prev_end_marker  with
       | `Error -> `Error
       | `Success (tail, pos) -> 
-        `Success (If_Then_Else_Fi_and_tail ((comp_tree, st1, st2), tail), pos)))
+        `Success (If_Then_Else_Fi_and_tail ((comp_tree, st1, st2, start_pos), tail), pos)))
 
 let read_file_as_string filename =
   let ic = open_in filename in
@@ -309,11 +310,11 @@ let rec print_expr_levels expr level =
       print_expr_levels left (level + 1);
       print_expr_levels right (level + 1) 
 
-let parse_and_print text =
+(* let parse_and_print text =
   match find_expr text 0 with
   | `Error -> Printf.printf "Error parsing expression\n"
   | `Success (ast, _) -> 
-    print_expr_levels ast 0
+    print_expr_levels ast 0 *)
 
 let print_comporision_levels comparision level =
   let Comparision (c_op, left, right) = comparision in
@@ -329,20 +330,20 @@ let print_comporision_levels comparision level =
   print_expr_levels left (level + 1);
   print_expr_levels right (level + 1)
 
-let parse_and_print_comparision text  =
+(* let parse_and_print_comparision text  =
   match find_comparision text 0 with
   | `Error -> Printf.printf "Error parsing comporission\n"
   | `Success (comparision, _) -> 
-    print_comporision_levels comparision 0
+    print_comporision_levels comparision 0 *)
 
 let rec print_statements_levels statements level =
   match statements with
-  | While_Do_Done_and_tail ((comp, st, pos), tail) -> 
+  | While_Do_Done_and_tail ((comp, st, _), tail) -> 
     Printf.printf "%sWhileDoDone_and_tail\n" (String.make (level * 2) ' ');
     print_comporision_levels comp (level + 1);
     print_statements_levels st (level + 1);
     print_statements_levels tail (level + 1)
-  | If_Then_Else_Fi_and_tail ((comp, st1, st2), tail) ->
+  | If_Then_Else_Fi_and_tail ((comp, st1, st2, _), tail) ->
     Printf.printf "%sIfThenElseFi_and_tail\n" (String.make (level * 2) ' ');
     print_comporision_levels comp (level + 1);
     print_statements_levels st1 (level + 1);
@@ -420,40 +421,56 @@ let codegen program =
   (* calls codegen for expr func, then 
      if var is already declared, generates code for placing new value in its address, 
      if not, places it in stack (additionaly grows it). then calls statements codegen *)
-  let rec codegen_assignment assign_and_tail vars stack_memory_left =
-    let (Ident id, expr), tail = assign_and_tail in
+  let rec codegen_assignment_and_tail assign tail vars stack_memory_allocated =
+    let (Ident id, expr) =  assign in
       codegen_expr expr vars;
       match List.find_opt (fun var -> String.equal id (fst var)) vars with
       | Some var ->  
         Printf.printf "sd a0, %d(s0)\n" (snd var);
-         codegen_statements  tail vars stack_memory_left
+         codegen_statements  tail vars stack_memory_allocated
       | None -> 
         let offest =  match vars with
           | [] -> -8 
           | not_empty_list ->
             (snd (List.nth  not_empty_list 0) - 8)
         in
-        let stack_memory_left =
-          match stack_memory_left < 8 with 
+        let stack_memory_allocated =
+          match stack_memory_allocated < - offest with 
           (* grows stack downwards for 24 bytes, takes 8 for newmade var *)
           |true -> let stack_memmory_gain = 24 in
             Printf.printf "addi sp, sp, -%d\n" stack_memmory_gain;
-            stack_memory_left + 24 - 8;
-          |false -> stack_memory_left - 8
+            stack_memory_allocated + 24;
+          |false -> stack_memory_allocated
         in
         let vars = (id, offest) :: vars in
         Printf.printf "sd a0, %d(s0)\n" offest;
-        codegen_statements tail vars stack_memory_left
+        codegen_statements tail vars stack_memory_allocated
 
-  and codegen_wdd ((comp, st, pos), tail) vars stack_memory_left = 
+  and codegen_wdd_and_tail ((comp, st, pos), tail) vars stack_memory_allocated = 
     (* labels contain position of start of the loop, so they are unique for each loop *)
-    let start_label = Printf.sprintf "while_%d_lbl" pos in
-    let end_label = Printf.sprintf "done_%d_lbl" pos in
+    let start_label = Printf.sprintf ".while_%d_lbl" pos in
+    let end_label = Printf.sprintf ".done_%d_lbl" pos in
     Printf.printf "%s:\n" start_label;
     codegen_branching comp vars end_label;
-    codegen_statements st vars stack_memory_left;
-    Printf.printf "j %s\n%s\n" end_label end_label;
-    codegen_statements tail vars stack_memory_left;
+    codegen_statements st vars stack_memory_allocated;
+    Printf.printf "addi sp, s0, -%d\n" stack_memory_allocated; 
+    Printf.printf "j %s\n%s:\n" start_label end_label;
+    codegen_statements tail vars stack_memory_allocated;
+
+  and codgen_itef_and_tail itef tail vars stack_memory_allocated =
+    let comp, then_branch, else_branch, pos = itef in
+    let start_label = Printf.sprintf ".if_%d_lbl" pos in 
+    let else_label = Printf.sprintf ".else_%d_lbl" pos in
+    let fi_label = Printf.sprintf ".fi_%d_lbl" pos in
+      Printf.printf "%s:\n" start_label;
+      codegen_branching comp vars else_label;
+      codegen_statements then_branch vars stack_memory_allocated;
+      Printf.printf "addi sp, s0, -%d\n" stack_memory_allocated;
+      Printf.printf "j %s\n%s:\n" fi_label else_label;
+      codegen_statements else_branch vars stack_memory_allocated;
+      Printf.printf "addi sp, s0, -%d\n" stack_memory_allocated; 
+      Printf.printf "%s:\n" fi_label;
+      codegen_statements tail vars stack_memory_allocated
 
   and codegen_branching comparision vars else_branch_label =
     let Comparision (comp_op, expr1, expr2) = comparision in
@@ -470,18 +487,22 @@ let codegen program =
     in
       Printf.printf "%s a0, a1, %s\n" branching_op else_branch_label
   (* defines type of first statement in list and calls corresponding codegen func *)
-  and codegen_statements statements vars stack_memory_left =
+  and codegen_statements statements vars stack_memory_allocated =
     match statements with
-    | Assignment_and_tail (a,t) -> codegen_assignment (a,t) vars stack_memory_left
-    | While_Do_Done_and_tail ((comp, st, pos), tail) -> codegen_wdd ((comp, st, pos), tail) vars stack_memory_left;
+    | Assignment_and_tail (assignment, tail) ->
+      codegen_assignment_and_tail assignment tail vars stack_memory_allocated;
+    | While_Do_Done_and_tail ((comp, st, pos), tail) ->
+      codegen_wdd_and_tail ((comp, st, pos), tail) vars stack_memory_allocated;
     | Nothing -> ()
-    | _ -> failwith "not yet implemented"
+    | If_Then_Else_Fi_and_tail (itef, tail) ->
+      codgen_itef_and_tail itef tail vars stack_memory_allocated 
+
   in
-  let stack_memory_left = 24 in
+  let stack_memory_allocated = 24 in
   Printf.printf ".global _start\n\n_start:\n";
   (* grows stack downwards and sets stack pointer to first address in stack *)
-  Printf.printf "addi sp, sp, -%d\naddi s0, sp, %d\n" stack_memory_left stack_memory_left;
-  codegen_statements program [] stack_memory_left;
+  Printf.printf "addi sp, sp, -%d\naddi s0, sp, %d\n" stack_memory_allocated stack_memory_allocated;
+  codegen_statements program [] stack_memory_allocated;
   (*while only assignment and expressions are implemented: the line below returns <last var> % 256*)
   Printf.printf "li a1, 256\nrem a0, a0, a1\nli a7, 93\necall" 
 
@@ -494,7 +515,7 @@ let codegen program =
 
 (* assignments and expressions codegen example *)
 let() =
-    parse_and_print_program "test/test_as_and_expr_codegen_input.txt";
-    match program "test/test_as_and_expr_codegen_input.txt" with
+    parse_and_print_program "test/test_parce_and_codegen_program.txt";
+    match program "test/test_parce_and_codegen_program.txt" with
     |`Error -> failwith ""
     | `Success (prog,_) -> codegen prog
