@@ -416,12 +416,12 @@ let codegen program =
         | Multiply -> "mul";
         | Divide -> "div")
   in
-  (* ass and tail XD note: pls change it before presentation. also memory with one m *)
+
   (* calls codegen for expr func, then 
      if var is already declared, generates code for placing new value in its address, 
      if not, places it in stack (additionaly grows it). then calls statements codegen *)
-  let rec codegen_assignment ass_and_tail vars stack_memory_left =
-    let (Ident id, expr), tail = ass_and_tail in
+  let rec codegen_assignment assign_and_tail vars stack_memory_left =
+    let (Ident id, expr), tail = assign_and_tail in
       codegen_expr expr vars;
       match List.find_opt (fun var -> String.equal id (fst var)) vars with
       | Some var ->  
