@@ -5,6 +5,24 @@ let codegen program =
   let regs = ["a0"; "a1"; "a2"; "a3"; "a4"; "a5"; "a6"; "a7";
  "a8"; "t0"; "t1"; "t2"; "t3"; "t4"; "t5"; "t6"] in
   let regs_len = List.length regs in
+  let print_var var =
+    let id, offset = var in
+    let length = String.length id in
+      Printf.fprintf output_file "li a0, 0\nli a1, %d\nli a2, 3\nli a3, 33\n\
+      li a4, -1\nli a5, 0\nli a7, 222\necall\n" (length + 4);
+      (* code of \n = 10 *)
+      Printf.fprintf output_file "li a1, 10\nsd a1, (a0)\n";
+      String.iteri ( fun i ch ->
+        Printf.fprintf output_file "li a1, %d\nsd a1, %d(a0)\n" (Char.code ch) (i + 1)) id;
+        (* space + '=' + space *)
+      Printf.fprintf output_file
+        "li a1, 32\nli a2, 61\nsd a1, %d(a0)\nsd a2, %d(a0)\nsd a1, %d(a0)\n\
+        mv a1, a0\nli a0, 1\nli a2, %d\nli a7, 64\necall\n"
+         (length + 1) (length + 2) (length + 3) (length + 4);
+      Printf.fprintf output_file
+        "addi sp, sp, -8\nld a0, %d(s0)\nsd ra, 8(sp)\ncall print_uint\n\
+        ld ra, 8(sp)\naddi sp, sp, 8\n" offset
+  in
   (* forms assembly code for arithm expr *)
   let rec codegen_expr ?(reg = 0) expr vars =
     match expr with
@@ -38,7 +56,7 @@ let codegen program =
   (* calls codegen for expr func, then 
      if var is already declared, generates code for placing new value in its address, 
      if not, places it in stack (additionaly grows it). then calls statements codegen *)
-  let rec codegen_assignment_and_tail assign tail vars stack_memory_allocated =
+  let rec codegen_assignment_and_tail assign tail vars stack_memory_allocated is_main_thr =
     let (Ident id, expr) =  assign in
       codegen_expr expr vars;
       match List.find_opt (fun var -> String.equal id (fst var)) vars with
@@ -52,18 +70,18 @@ let codegen program =
             (snd (List.nth  not_empty_list 0) - 8)
         in
         let stack_memory_allocated =
-          match stack_memory_allocated < - offest with 
+          match stack_memory_allocated < -offest with
           (* grows stack downwards for 24 bytes, takes 8 for newmade var *)
-          |true -> let stack_memmory_gain = 24 in
-            Printf.fprintf output_file "addi sp, sp, -%d\n" stack_memmory_gain;
+          |true -> let stack_memory_gain = 24 in
+            Printf.fprintf output_file "addi sp, sp, -%d\n" stack_memory_gain;
             stack_memory_allocated + 24;
           |false -> stack_memory_allocated
         in
         let vars = (id, offest) :: vars in
         Printf.fprintf output_file "sd a0, %d(s0)\n" offest;
-        codegen_statements tail vars stack_memory_allocated
+        codegen_statements ~is_main_thr:is_main_thr tail vars stack_memory_allocated
 
-  and codegen_wdd_and_tail ((comp, st, pos), tail) vars stack_memory_allocated = 
+  and codegen_wdd_and_tail ((comp, st, pos), tail) vars stack_memory_allocated is_main_thr =
     (* labels contain position of start of the loop, so they are unique for each loop *)
     let start_label = Printf.sprintf ".while_%d_lbl" pos in
     let end_label = Printf.sprintf ".done_%d_lbl" pos in
@@ -72,9 +90,9 @@ let codegen program =
     codegen_statements st vars stack_memory_allocated;
     Printf.fprintf output_file "addi sp, s0, -%d\n" stack_memory_allocated; 
     Printf.fprintf output_file "j %s\n%s:\n" start_label end_label;
-    codegen_statements tail vars stack_memory_allocated;
+    codegen_statements ~is_main_thr:is_main_thr tail vars stack_memory_allocated;
 
-  and codgen_itef_and_tail itef tail vars stack_memory_allocated =
+  and codgen_itef_and_tail itef tail vars stack_memory_allocated is_main_thr =
     let comp, then_branch, else_branch, pos = itef in
     let start_label = Printf.sprintf ".if_%d_lbl" pos in 
     let else_label = Printf.sprintf ".else_%d_lbl" pos in
@@ -87,7 +105,7 @@ let codegen program =
       codegen_statements else_branch vars stack_memory_allocated;
       Printf.fprintf output_file "addi sp, s0, -%d\n" stack_memory_allocated; 
       Printf.fprintf output_file "%s:\n" fi_label;
-      codegen_statements tail vars stack_memory_allocated
+      codegen_statements ~is_main_thr:is_main_thr tail vars stack_memory_allocated
 
   and codegen_branching comparision vars else_branch_label =
     let Comparision (comp_op, expr1, expr2) = comparision in
@@ -104,21 +122,21 @@ let codegen program =
     in
       Printf.fprintf output_file "%s a0, a1, %s\n" branching_op else_branch_label
   (* defines type of first statement in list and calls corresponding codegen func *)
-  and codegen_statements statements vars stack_memory_allocated =
+  and codegen_statements ?(is_main_thr = false) statements vars stack_memory_allocated =
     match statements with
     | Assignment_and_tail (assignment, tail) ->
-      codegen_assignment_and_tail assignment tail vars stack_memory_allocated;
+      codegen_assignment_and_tail assignment tail vars stack_memory_allocated is_main_thr;
     | While_Do_Done_and_tail ((comp, st, pos), tail) ->
-      codegen_wdd_and_tail ((comp, st, pos), tail) vars stack_memory_allocated;
-    | Nothing -> ()
+      codegen_wdd_and_tail ((comp, st, pos), tail) vars stack_memory_allocated  is_main_thr;
+    | Nothing -> if is_main_thr then
+      (Printf.fprintf output_file ".print_vars:\n";
+      List.iter print_var vars)
     | If_Then_Else_Fi_and_tail (itef, tail) ->
-      codgen_itef_and_tail itef tail vars stack_memory_allocated 
-
+      codgen_itef_and_tail itef tail vars stack_memory_allocated is_main_thr;
   in
   let stack_memory_allocated = 24 in
   Printf.fprintf output_file ".global _start\n\n_start:\n";
   (* grows stack downwards and sets stack pointer to first address in stack *)
   Printf.fprintf output_file "addi sp, sp, -%d\naddi s0, sp, %d\n" stack_memory_allocated stack_memory_allocated;
-  codegen_statements program [] stack_memory_allocated;
-  (*while only assignment and expressions are implemented: the line below returns <last var> % 256*)
-  Printf.fprintf output_file "li a1, 256\nrem a0, a0, a1\nli a7, 93\necall" 
+  codegen_statements ~is_main_thr:true program [] stack_memory_allocated;
+  Printf.fprintf output_file "li a0, 0\nli a7, 93\necall\n"
