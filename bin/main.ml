@@ -25,7 +25,9 @@ open Codegen_riscv64.Codegen
 
 (* assignments and expressions codegen example *)
 let() =
-    (* parse_and_print_program "test/test_parce_and_codegen_program.txt"; *)
-    match program "test/test_parce_and_codegen_program.txt" with
+    if Array.length Sys.argv < 2 then failwith 
+      "expects 1 argument, but is applied here to 0 argumens";
+    (* parse_and_print_program Sys.argv.(1); *)
+    match program Sys.argv.(1) with
     |`Error -> failwith ""
     | `Success (prog,_) -> codegen prog
