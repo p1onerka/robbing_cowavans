@@ -1,4 +1,4 @@
 (executable
  (public_name robbing_cowavans)
  (name main)
- (libraries robbing_cowavans))
+ (libraries parser codegen_riscv64))

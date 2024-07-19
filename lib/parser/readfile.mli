@@ -1,0 +1,1 @@
+val program : string -> [ `Error | `Success of Types.statements * int ]
