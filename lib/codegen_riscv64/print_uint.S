@@ -10,7 +10,6 @@ li a5, 0
 li a7, 222
 ecall
 .itoa:
-mv a5, a1
 mv a1, a0
 li t0, 19
 li t2, 1000000000000000000
@@ -39,7 +38,7 @@ addi a0, a0, 1
 addi t0, t0, -1
 j .itoa_loop2
 .zero_case:
-li t3, 30
+li t3, 48
 sd t3, (a0)
 .print:
 li a0, 1
@@ -47,7 +46,7 @@ li a7, 64
 ecall
 .exit:
 mv a0, a1
-mv a1, a5
+li a1, 20
 li a7, 215
 ecall
 ret

@@ -24,7 +24,7 @@ let find_const text pos =
       acc_num (pos + 1) (acc ^ String.make 1 text.[pos])
     else
       if String.length acc > 0 then
-        `Success (Const (int_of_string acc), pos)
+        `Success (Const (acc), pos)
       else
         `Error
   in

@@ -30,7 +30,7 @@ let codegen program =
   let rec codegen_expr ?(reg = 0) expr vars =
     match expr with
     (* expr is single const => just load it into first enable register (default a0) *)
-    | Const x -> Printf.fprintf output_file "li %s, %d\n" (List.nth regs reg) x
+    | Const x -> Printf.fprintf output_file "li %s, %s\n" (List.nth regs reg) x
     (* expr is var => search for it in stack *)
     | Var Ident id ->
       (match List.find_opt (fun var -> String.equal id (fst var)) vars with

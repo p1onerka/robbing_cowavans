@@ -4,8 +4,8 @@ type ariphm_oper = Plus | Minus | Multiply | Divide
 
 type ident = Ident of string
 
-type expr =
-  | Const of int
+type expr = 
+  | Const of string
   | Var of ident
   | Binop of ariphm_oper * expr * expr
 
