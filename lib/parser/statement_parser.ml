@@ -2,8 +2,6 @@ open Types
 open Expression_parser
 
 (* Pascal-like: [=] - equal, [<>] - not equal, [<], [<=], [>], [>=]  *)
-(* (Ksenia): "<" has three combinations so it is moved to outer function.
-   note: it would prob be more beautiful to move ">" out too*)
    let find_comp_oper text pos =
     let find_after_less_oper =
       if pos + 1 >= find_len text then `Success (Less, pos)

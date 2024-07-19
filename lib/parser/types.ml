@@ -1,5 +1,3 @@
-(* open List *)
-
 type ariphm_oper = Plus | Minus | Multiply | Divide
 
 type ident = Ident of string
