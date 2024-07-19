@@ -10,6 +10,7 @@ li a5, 0
 li a7, 222
 ecall
 .itoa:
+mv a5, a1
 mv a1, a0
 li t0, 19
 li t2, 1000000000000000000
@@ -45,4 +46,8 @@ li a0, 1
 li a7, 64
 ecall
 .exit:
+mv a0, a1
+mv a1, a5
+li a7, 215
+ecall
 ret

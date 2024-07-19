@@ -8,18 +8,21 @@ let codegen program =
   let print_var var =
     let id, offset = var in
     let length = String.length id in
+      (*call mmap*)
       Printf.fprintf output_file "li a0, 0\nli a1, %d\nli a2, 3\nli a3, 33\n\
       li a4, -1\nli a5, 0\nli a7, 222\necall\n" (length + 4);
       (* code of \n = 10 *)
       Printf.fprintf output_file "li a1, 10\nsd a1, (a0)\n";
+      (* load id *)
       String.iteri ( fun i ch ->
         Printf.fprintf output_file "li a1, %d\nsd a1, %d(a0)\n" (Char.code ch) (i + 1)) id;
-        (* space + '=' + space *)
+        (* space + '=' + space *) (* print *) (*call munmap*)
       Printf.fprintf output_file
-        "li a1, 32\nli a2, 61\nsd a1, %d(a0)\nsd a2, %d(a0)\nsd a1, %d(a0)\n\
-        mv a1, a0\nli a0, 1\nli a2, %d\nli a7, 64\necall\n"
-         (length + 1) (length + 2) (length + 3) (length + 4);
+        "li a1, 32\nli a2, 61\nsd a1, %d(a0)\nsd a2, %d(a0)\nsd a1, %d(a0)\nmv a1, a0\n\
+        li a0, 1\nli a2, %d\nli a7, 64\necall\nmv a0, a1\n li a1, %d\nli a7, 215\necall\n"
+         (length + 1) (length + 2) (length + 3) (length + 4) (length + 4);
       Printf.fprintf output_file
+      (*load value and call print_uint*)
         "addi sp, sp, -8\nld a0, %d(s0)\nsd ra, 8(sp)\ncall print_uint\n\
         ld ra, 8(sp)\naddi sp, sp, 8\n" offset
   in
