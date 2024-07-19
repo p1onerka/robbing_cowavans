@@ -19,11 +19,11 @@ let codegen program =
         (* space + '=' + space *) (* print *) (*call munmap*)
       Printf.fprintf output_file
         "li a1, 32\nli a2, 61\nsd a1, %d(a0)\nsd a2, %d(a0)\nsd a1, %d(a0)\nmv a1, a0\n\
-        li a0, 1\nli a2, %d\nli a7, 64\necall\nmv a0, a1\n li a1, %d\nli a7, 215\necall\n"
+        li a0, 1\nli a2, %d\nli a7, 64\necall\nmv a0, a1\nli a1, %d\nli a7, 215\necall\n"
          (length + 1) (length + 2) (length + 3) (length + 4) (length + 4);
       Printf.fprintf output_file
-      (*load value and call print_uint*)
-        "addi sp, sp, -8\nld a0, %d(s0)\nsd ra, 8(sp)\ncall print_uint\n\
+      (*load value and call print_int*)
+        "addi sp, sp, -8\nld a0, %d(s0)\nsd ra, 8(sp)\ncall print_int\n\
         ld ra, 8(sp)\naddi sp, sp, 8\n" offset
   in
   (* forms assembly code for arithm expr *)

@@ -12,4 +12,4 @@ else
                 n:=n-1;
         done
 fi
-res:=acc;
+e := n - acc;
