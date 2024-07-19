@@ -139,7 +139,6 @@ let codegen program =
   in
   let stack_memory_allocated = 24 in
   Printf.fprintf output_file ".global _start\n\n_start:\n";
-  (* grows stack downwards and sets stack pointer to first address in stack *)
   Printf.fprintf output_file "addi sp, sp, -%d\naddi s0, sp, %d\n" stack_memory_allocated stack_memory_allocated;
   codegen_statements ~is_main_thr:true program [] stack_memory_allocated;
   Printf.fprintf output_file "li a0, 0\nli a7, 93\necall\n"
