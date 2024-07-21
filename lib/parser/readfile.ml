@@ -10,7 +10,9 @@ let read_file_as_string filename =
 
 let program file_name =
   let input = read_file_as_string file_name in
-    find_statements input 0 EOF
+    match find_statements input 0 EOF with
+    | `Success (prog, _) -> `Success (prog, 0)
+    | `Error (msg, pos) -> `Error (msg, pos)
 
 (* debug print functions, need to be removed later *)
 
