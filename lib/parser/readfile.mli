@@ -1,1 +1,1 @@
-val program : string -> [ `Error of string * int| `Success of Types.statements * int ]
+val program : string -> [ `Error| `Success of Types.statements * int ]

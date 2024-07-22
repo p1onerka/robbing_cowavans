@@ -1,4 +1,4 @@
-let error_processing filename msg pos = 
+let error_processing program msg pos = 
   let find_line text position =
     let rec aux index line_number line_start =
       if index >= position then
@@ -13,19 +13,7 @@ let error_processing filename msg pos =
     aux 0 1 0
   in
 
-  let read_file filename =
-    let ic = open_in filename in
-    let n = in_channel_length ic in
-    let s = really_input_string ic n in
-    close_in ic;
-    s
-  in
-
-  let input = read_file filename in
-  let (line_number, line, line_pos) = find_line input pos in
-  (*
-  Printf.printf "Error in line %d: %s:\n %s, position is %d \n" line_number msg line line_pos
-  *)
+  let (line_number, line, line_pos) = find_line program pos in
 
   let indentation = String.make (line_pos) ' ' in
   Printf.printf "Error in line %d: %s:\n %s \n%s ^\n" line_number msg line indentation
