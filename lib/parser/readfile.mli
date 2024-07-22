@@ -1,1 +1,1 @@
-val program : string -> [ `Error| `Success of Types.statements * int ]
+val read_file_as_string : string -> string

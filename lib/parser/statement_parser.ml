@@ -48,15 +48,15 @@ let rec find_statements text pos end_marker =
   if pos >= find_len text && end_marker == EOF then `Success (Nothing, pos)
   else match find_ident_or_keyword text pos with
     | `Error _ -> `Error ("Syntax error occured, the code doesn't match any scheme. The code block may not have been completed correctly", pos)
-    | `Success (id_or_kw, pos) ->
+    | `Success (id_or_kw, pos1) ->
       match Word id_or_kw with
-      | em when em = end_marker -> `Success (Nothing, pos)
-      | Word "while" -> wdd_and_tail text pos end_marker
-      | Word "if" -> itef_and_tail text pos end_marker
+      | em when em = end_marker -> `Success (Nothing, pos1)
+      | Word "while" -> wdd_and_tail text pos1 end_marker
+      | Word "if" -> itef_and_tail text pos1 end_marker
       | Word id -> 
         if (is_keyword id) then `Error ("Unidentified or incorrect keyword", pos)
-        else assignment_and_tail text pos (Ident id) end_marker
-      | EOF -> `Error ("Unexpected end of input", pos)(* unreacheable *) 
+        else assignment_and_tail text pos1 (Ident (id, pos)) end_marker
+      | EOF -> `Error ("Unexpected end of input", pos1)(* unreacheable *) 
 
 (* (Ksenia): second version, wanna save it until im sure it is useless :)
 and parse_assignment text pos ident prev_end_marker =
@@ -86,17 +86,17 @@ and assignment_and_tail text pos id prev_end_marker =
 
 and assignment_and_tail text pos ident prev_end_marker =
 let pos = find_ws text pos in
-if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
-  let pos = find_ws text (pos + 2) in
-  match find_expr text pos with
-  | `Error _-> `Error ("Empty assignment found. Please enter some expression", pos)
-  | `Success (exp, pos) ->
-    let pos = find_ws text pos in
-    if pos < find_len text && text.[pos] = ';' then
-      let pos = find_ws text (pos + 1) in
-      let* (st, pos) = find_statements text pos prev_end_marker in
-        `Success (Assignment_and_tail ((ident, exp), st), pos)
-    else `Error ("Couldn't find ; in assignment", pos)
+  if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
+    let pos = find_ws text (pos + 2) in
+    match find_expr text pos with
+    | `Error _-> `Error ("Empty assignment found. Please enter some expression", pos)
+    | `Success (exp, pos) ->
+      let pos = find_ws text pos in
+        if pos < find_len text && text.[pos] = ';' then
+          let pos = find_ws text (pos + 1) in
+            let* (st, pos) = find_statements text pos prev_end_marker in
+              `Success (Assignment_and_tail ((ident, exp), st), pos)
+      else `Error ("Couldn't find ; in assignment", pos)
 else `Error ("Couldn't find := in assignment", pos)
 
 (* forms a statement out of first found comparison 

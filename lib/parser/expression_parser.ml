@@ -53,7 +53,7 @@ let find_ident text pos =
     if is_keyword s then
       `Error ""
     else
-      `Success (Var (Ident s), pos)
+      `Success (Var (Ident (s, pos)), pos)
 
 (* expression is name for terms connected with +/- *)
 let rec find_expr text pos =

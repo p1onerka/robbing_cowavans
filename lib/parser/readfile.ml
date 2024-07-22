@@ -1,5 +1,3 @@
-open Statement_parser
-open Error_processing
 (* there are also debug prints, dont forget to delete them later *)
 
 let read_file_as_string filename =
@@ -8,12 +6,6 @@ let read_file_as_string filename =
   let s = really_input_string ic n in
   close_in ic;
   s
-
-let program file_name =
-  let input = read_file_as_string file_name in
-    match find_statements input 0 EOF with
-    | `Success (prog, _) -> `Success (prog, 0)
-    | `Error (msg, pos) -> error_processing input msg pos; `Error
 
 (* debug print functions, need to be removed later *)
 
