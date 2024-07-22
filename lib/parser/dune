@@ -1,3 +1,4 @@
 (library
 (name parser)
+(libraries helpers)
 (modules types readfile expression_parser statement_parser error_processing))

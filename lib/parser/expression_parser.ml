@@ -1,4 +1,5 @@
 open Types
+open Helpers.Bind
 
 let find_len s = String.length s
 
@@ -26,7 +27,7 @@ let find_const text pos =
       if String.length acc > 0 then
         `Success (Const (acc), pos)
       else
-        `Error
+        `Error ""
   in
   acc_num pos ""
 
@@ -40,7 +41,7 @@ let find_ident_or_keyword text pos =
       if String.length acc > 0 then
         `Success (acc, pos)
       else
-        `Error
+        `Error ""
   in
   acc_id pos ""
 
@@ -48,53 +49,42 @@ let is_keyword s =
   s = "while" || s = "do" || s = "done" || s = "if" || s = "then" || s = "else" || s = "fi"
 
 let find_ident text pos =
-  match find_ident_or_keyword text pos with
-  | `Success (s, new_pos) ->
-      if is_keyword s then
-        `Error
-      else
-        `Success (Var (Ident s), new_pos)
-  | `Error -> `Error
+  let* (s, pos) = find_ident_or_keyword text pos in
+    if is_keyword s then
+      `Error ""
+    else
+      `Success (Var (Ident s), pos)
 
 (* expression is name for terms connected with +/- *)
 let rec find_expr text pos =
-  let pos = find_ws text pos in
-  match find_term text pos with
-  | `Error -> `Error
-  | `Success (left, pos) -> find_expr_tail left text pos
+  let* (left, pos) = find_term text (find_ws text pos) in find_expr_tail left text pos
 
 (* here: tail is term or expr in brackets taking place after +/- *)
 and find_expr_tail left text pos =
   let pos = find_ws text pos in
   if pos < find_len text && text.[pos] = '+' then
-    match find_term text (pos + 1) with
-    | `Error -> `Error
-    | `Success (right, pos) -> find_expr_tail (Binop (Plus, left, right)) text pos
+    let* (right, pos) =  find_term text (pos + 1) in
+      find_expr_tail (Binop (Plus, left, right)) text pos
   else if pos < find_len text && text.[pos] = '-' then
-    match find_term text (pos + 1) with
-    | `Error -> `Error
-    | `Success (right, pos) -> find_expr_tail (Binop (Minus, left, right)) text pos
+    let* (right, pos) = find_term text (pos + 1) in
+      find_expr_tail (Binop (Minus, left, right)) text pos
   else
   (* expression can be single term *)
     `Success (left, pos)
 
 (* term is name for some factors connected with *\/ *)
 and find_term text pos =
-  let pos = find_ws text pos in
-  match find_factor text pos with
-  | `Error -> `Error
-  | `Success (left, pos) -> find_term_tail left text pos
+  let* (left, pos) = find_factor text (find_ws text pos) in
+    find_term_tail left text pos
 
 and find_term_tail left text pos =
   let pos = find_ws text pos in
   if pos < find_len text && text.[pos] = '*' then
-    match find_factor text (pos + 1) with
-    | `Error -> `Error
-    | `Success (right, pos) -> find_term_tail (Binop (Multiply, left, right)) text pos
+    let* (right, pos) =  find_term text (pos + 1) in
+      find_term_tail (Binop (Multiply, left, right)) text pos
   else if pos < find_len text && text.[pos] = '/' then
-    match find_factor text (pos + 1) with
-    | `Error -> `Error
-    | `Success (right, pos) -> find_term_tail (Binop (Divide, left, right)) text pos
+    let* (right, pos) =  find_term text (pos + 1) in
+      find_term_tail (Binop (Divide, left, right)) text pos
   else
     `Success (left, pos)
 
@@ -103,14 +93,12 @@ and find_factor text pos =
   let pos = find_ws text pos in
   (* expr in brackets *)
   if pos < find_len text && text.[pos] = '(' then
-    match find_expr text (pos + 1) with
-    | `Error -> `Error
-    | `Success (e, pos) ->
-        let pos = find_ws text pos in
+    let* (e, pos) = find_expr text (pos + 1) in
+      let pos = find_ws text pos in
         if pos < find_len text && text.[pos] = ')' then
           `Success (e, pos + 1)
         else
-          `Error
+          `Error ""
   (* single const *)
   else if pos < find_len text && is_digit text.[pos] then
     find_const text pos
@@ -119,4 +107,4 @@ and find_factor text pos =
     find_ident text pos
   (* unknown token *)
   else
-    `Error
+    `Error ""

@@ -1,5 +1,6 @@
 open Types
 open Expression_parser
+open Helpers.Bind
 
 (* Pascal-like: [=] - equal, [<>] - not equal, [<], [<=], [>], [>=]  *)
    let find_comp_oper text pos =
@@ -17,24 +18,24 @@ open Expression_parser
       | _ -> `Success (Greater, pos + 1)
     in
     let pos = find_ws text pos in
-    if pos >= find_len text then `Error
+    if pos >= find_len text then `Error ""
     else match text.[pos] with 
       | '=' -> `Success (Equal, pos + 1)
       | '<' -> find_after_less_oper
       | '>' -> find_after_right_oper
-      | _ -> `Error
+      | _ -> `Error ""
 
 (* take first expr, try to find comp oper, 
    combine it with second expr to form comparison *)
 let find_comparision text pos =
   match find_expr text pos with 
-  | `Error -> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
+  | `Error _ -> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
   | `Success (e1, pos) ->
     match find_comp_oper text pos with
-    | `Error -> `Error ("Condition scheme invalid. An incorrect comparison operator may have been entered", pos)
+    | `Error _ -> `Error ("Condition scheme invalid. An incorrect comparison operator may have been entered", pos)
     | `Success (c_op, pos) -> 
       match find_expr text pos with
-      | `Error -> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
+      | `Error _-> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
       | `Success (e2, pos)-> `Success (Comparision (c_op, e1, e2), pos)
 
 type end_marker = EOF | Word of string
@@ -46,7 +47,7 @@ let rec find_statements text pos end_marker =
   let pos = find_ws text pos in
   if pos >= find_len text && end_marker == EOF then `Success (Nothing, pos)
   else match find_ident_or_keyword text pos with
-    | `Error -> `Error ("Syntax error occured, the code doesn't match any scheme. The code block may not have been completed correctly", pos)
+    | `Error _ -> `Error ("Syntax error occured, the code doesn't match any scheme. The code block may not have been completed correctly", pos)
     | `Success (id_or_kw, pos) ->
       match Word id_or_kw with
       | em when em = end_marker -> `Success (Nothing, pos)
@@ -56,7 +57,7 @@ let rec find_statements text pos end_marker =
         if (is_keyword id) then `Error ("Unidentified or incorrect keyword", pos)
         else assignment_and_tail text pos (Ident id) end_marker
       | EOF -> `Error ("Unexpected end of input", pos)(* unreacheable *) 
-       
+
 (* (Ksenia): second version, wanna save it until im sure it is useless :)
 and parse_assignment text pos ident prev_end_marker =
   let pos = find_ws text pos in
@@ -88,54 +89,38 @@ let pos = find_ws text pos in
 if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
   let pos = find_ws text (pos + 2) in
   match find_expr text pos with
-  | `Error -> `Error ("Empty assignment found. Please enter some expression", pos)
+  | `Error _-> `Error ("Empty assignment found. Please enter some expression", pos)
   | `Success (exp, pos) ->
     let pos = find_ws text pos in
     if pos < find_len text && text.[pos] = ';' then
       let pos = find_ws text (pos + 1) in
-      match find_statements text pos prev_end_marker with
-      | `Error (msg, pos) -> `Error (msg, pos)
-      | `Success (st, pos) ->
+      let* (st, pos) = find_statements text pos prev_end_marker in
         `Success (Assignment_and_tail ((ident, exp), st), pos)
     else `Error ("Couldn't find ; in assignment", pos)
 else `Error ("Couldn't find := in assignment", pos)
-
 
 (* forms a statement out of first found comparison 
    and given start/end marker (which are common part of wdd/ited statements) to define the statement. 
    Additionaly forms tree of nested statements *)
 and find_comp_and_nested_statements text pos statements_start_word statements_end_marker = 
-  match find_comparision text pos with
-  | `Error (msg, pos) -> `Error (msg, pos)
-  | `Success (comp_tree, pos) ->
+  let* (comp_tree, pos) = find_comparision text pos in
     (match find_ident_or_keyword text pos with
     | `Success (ssw, pos) when ssw = statements_start_word ->
-      (match find_statements text pos statements_end_marker with
-      | `Error (msg, pos) -> `Error (msg, pos)
-      | `Success (st, pos)-> `Success (comp_tree, st, pos))
+      let* (st, pos) =  find_statements text pos statements_end_marker in
+        `Success (comp_tree, st, pos)
     | _ -> `Error ("Syntax error occured. The code doesn't match any scheme", pos))
 
 (* parses completely insides of wdd/itef statement and forms its "tail":
    link to next statement of program on current level (in current block) *)
 and wdd_and_tail text pos prev_end_marker = 
   let start_pos = pos in
-  match find_comp_and_nested_statements text pos "do" (Word "done") with
-  | `Error (msg, pos) -> `Error (msg, pos)
-  | `Success (comp_tree, st, pos)->
-    match find_statements text pos prev_end_marker  with
-    | `Error (msg, pos) -> `Error (msg, pos)
-    | `Success (tail, pos) -> 
+  let* (comp_tree, st, pos) = find_comp_and_nested_statements text pos "do" (Word "done") in
+    let* (tail, pos) = find_statements text pos prev_end_marker in 
       `Success (While_Do_Done_and_tail ((comp_tree, st, start_pos), tail), pos)
 
 and itef_and_tail text pos prev_end_marker =
   let start_pos = pos in 
-  match find_comp_and_nested_statements text pos "then" (Word "else") with
-  | `Error (msg, pos) -> `Error (msg, pos)
-  | `Success (comp_tree, st1, pos)-> 
-    (match find_statements text pos (Word "fi") with
-    | `Error (msg, pos) -> `Error (msg, pos)
-    | `Success (st2, pos)->
-      (match find_statements text pos prev_end_marker  with
-      | `Error (msg, pos) -> `Error (msg, pos)
-      | `Success (tail, pos) -> 
-        `Success (If_Then_Else_Fi_and_tail ((comp_tree, st1, st2, start_pos), tail), pos)))
+  let* (comp_tree, st1, pos) = find_comp_and_nested_statements text pos "then" (Word "else") in
+    let* (st2, pos) = find_statements text pos (Word "fi") in
+      let* (tail, pos) = find_statements text pos prev_end_marker in 
+        `Success (If_Then_Else_Fi_and_tail ((comp_tree, st1, st2, start_pos), tail), pos)
