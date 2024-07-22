@@ -2,8 +2,7 @@ open Parser.Types
 
 let codegen program =
   let output_file = open_out (Filename.concat "./out" "output.S") in
-  let regs = ["a0"; "a1"; "a2"; "a3"; "a4"; "a5"; "a6"; "a7";
- "a8"; "t0"; "t1"; "t2"; "t3"; "t4"; "t5"; "t6"] in
+  let regs = ["a0"; "a1"; "a2"; "a3"; "a4"; "a5"; "a6"; "a7"; "t0"; "t1"; "t2"; "t3"; "t4"; "t5"; "t6"] in
   let regs_len = List.length regs in
   let print_var var =
     let id, offset = var in
