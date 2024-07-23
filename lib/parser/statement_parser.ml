@@ -3,39 +3,39 @@ open Expression_parser
 open Helpers.Bind
 
 (* Pascal-like: [=] - equal, [<>] - not equal, [<], [<=], [>], [>=]  *)
-   let find_comp_oper text pos =
-    let find_after_less_oper =
+   let find_comp_oper text pos0 =
+    let find_after_less_oper pos =
       if pos + 1 >= find_len text then `Success (Less, pos)
       else match text.[pos + 1] with
       | '>' -> `Success (Not_equal, pos + 2)
       | '=' -> `Success (Less_or_equal, pos + 2)
       | _ -> `Success (Less, pos + 1)
     in
-    let find_after_right_oper =
+    let find_after_right_oper pos =
       if pos + 1 >= find_len text then `Success (Greater, pos)
       else match text.[pos + 1] with
       | '=' -> `Success (Greater_or_equal, pos + 2)
       | _ -> `Success (Greater, pos + 1)
     in
-    let pos = find_ws text pos in
-    if pos >= find_len text then `Error ""
+    let pos = find_ws text pos0 in
+    if pos >= find_len text then `Error pos0
     else match text.[pos] with 
       | '=' -> `Success (Equal, pos + 1)
-      | '<' -> find_after_less_oper
-      | '>' -> find_after_right_oper
-      | _ -> `Error ""
+      | '<' -> find_after_less_oper pos
+      | '>' -> find_after_right_oper pos
+      | _ -> `Error pos
 
 (* take first expr, try to find comp oper, 
    combine it with second expr to form comparison *)
 let find_comparision text pos =
   match find_expr text pos with 
-  | `Error _ -> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
+  | `Error pos -> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
   | `Success (e1, pos) ->
     match find_comp_oper text pos with
-    | `Error _ -> `Error ("Condition scheme invalid. An incorrect comparison operator may have been entered", pos)
-    | `Success (c_op, pos) -> 
+    | `Error pos -> `Error ("Condition scheme invalid. An incorrect comparison operator may have been entered", pos)
+    | `Success (c_op, pos) ->
       match find_expr text pos with
-      | `Error _-> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
+      | `Error pos-> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
       | `Success (e2, pos)-> `Success (Comparision (c_op, e1, e2), pos)
 
 type end_marker = EOF | Word of string
@@ -90,13 +90,13 @@ let pos = find_ws text pos in
     let pos = find_ws text (pos + 2) in
     match find_expr text pos with
     | `Error _-> `Error ("Empty assignment found. Please enter some expression", pos)
-    | `Success (exp, pos) ->
-      let pos = find_ws text pos in
+    | `Success (exp, pos1) ->
+      let pos = find_ws text pos1 in
         if pos < find_len text && text.[pos] = ';' then
           let pos = find_ws text (pos + 1) in
             let* (st, pos) = find_statements text pos prev_end_marker in
               `Success (Assignment_and_tail ((ident, exp), st), pos)
-      else `Error ("Couldn't find ; in assignment", pos)
+        else `Error ("Couldn't find ; in assignment", pos1)
 else `Error ("Couldn't find := in assignment", pos)
 
 (* forms a statement out of first found comparison 

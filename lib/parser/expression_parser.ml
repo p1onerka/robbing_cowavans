@@ -27,12 +27,12 @@ let find_const text pos =
       if String.length acc > 0 then
         `Success (Const (acc), pos)
       else
-        `Error ""
+        `Error pos
   in
   acc_num pos ""
 
 let find_ident_or_keyword text pos =
-  let pos = find_ws text pos in
+  let pos0 = find_ws text pos in
   let length = find_len text in
   let rec acc_id pos acc =
     if pos < length && is_alpha text.[pos] then
@@ -41,27 +41,27 @@ let find_ident_or_keyword text pos =
       if String.length acc > 0 then
         `Success (acc, pos)
       else
-        `Error ""
+        `Error pos0
   in
-  acc_id pos ""
+  acc_id pos0 ""
 
 let is_keyword s =
   s = "while" || s = "do" || s = "done" || s = "if" || s = "then" || s = "else" || s = "fi"
 
-let find_ident text pos =
-  let* (s, pos) = find_ident_or_keyword text pos in
+let find_ident text pos0 =
+  let* (s, pos) = find_ident_or_keyword text pos0 in
     if is_keyword s then
-      `Error ""
+      `Error pos0
     else
-      `Success (Var (Ident (s, pos)), pos)
+      `Success (Var (Ident (s, pos0)), pos)
 
 (* expression is name for terms connected with +/- *)
 let rec find_expr text pos =
   let* (left, pos) = find_term text (find_ws text pos) in find_expr_tail left text pos
 
 (* here: tail is term or expr in brackets taking place after +/- *)
-and find_expr_tail left text pos =
-  let pos = find_ws text pos in
+and find_expr_tail left text pos0 =
+  let pos = find_ws text pos0 in
   if pos < find_len text && text.[pos] = '+' then
     let* (right, pos) =  find_term text (pos + 1) in
       find_expr_tail (Binop (Plus, left, right)) text pos
@@ -70,15 +70,15 @@ and find_expr_tail left text pos =
       find_expr_tail (Binop (Minus, left, right)) text pos
   else
   (* expression can be single term *)
-    `Success (left, pos)
+    `Success (left, pos0)
 
 (* term is name for some factors connected with *\/ *)
 and find_term text pos =
   let* (left, pos) = find_factor text (find_ws text pos) in
     find_term_tail left text pos
 
-and find_term_tail left text pos =
-  let pos = find_ws text pos in
+and find_term_tail left text pos0 =
+  let pos = find_ws text pos0 in
   if pos < find_len text && text.[pos] = '*' then
     let* (right, pos) =  find_term text (pos + 1) in
       find_term_tail (Binop (Multiply, left, right)) text pos
@@ -86,7 +86,7 @@ and find_term_tail left text pos =
     let* (right, pos) =  find_term text (pos + 1) in
       find_term_tail (Binop (Divide, left, right)) text pos
   else
-    `Success (left, pos)
+    `Success (left, pos0)
 
 (* factor is name for atomic term: const, var, smth in brackets *)
 and find_factor text pos =
@@ -98,7 +98,7 @@ and find_factor text pos =
         if pos < find_len text && text.[pos] = ')' then
           `Success (e, pos + 1)
         else
-          `Error ""
+          `Error pos
   (* single const *)
   else if pos < find_len text && is_digit text.[pos] then
     find_const text pos
@@ -107,4 +107,4 @@ and find_factor text pos =
     find_ident text pos
   (* unknown token *)
   else
-    `Error ""
+    `Error pos
