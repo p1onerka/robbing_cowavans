@@ -1,4 +1,4 @@
 (library
 (name codegen_riscv64)
-(libraries parser)
+(libraries parser helpers)
 (modules codegen))
