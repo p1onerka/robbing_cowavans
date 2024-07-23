@@ -20,16 +20,41 @@ let find_ws text pos =
 
 let find_const text pos =
   let length = find_len text in
-  let rec acc_num pos acc =
-    if pos < length && is_digit text.[pos] then
-      acc_num (pos + 1) (acc ^ String.make 1 text.[pos])
-    else
-      if String.length acc > 0 then
-        `Success (Const (acc), pos)
-      else
-        `Error pos
+  let overflow_check acc is_negative =
+    let len = find_len acc in
+      if len > 19 then `Error ("int overflow was found", pos)
+      else if len < 19 then `Success (Const (acc))
+      else 
+        let (int_max_value_uppers, int_max_value_lowers) = 
+          (9223372036, 854775807) in
+        let (uppers, lowers) =
+         (int_of_string (String.sub acc 0 10), int_of_string (String.sub acc 10 9))
+        in
+          if uppers > int_max_value_uppers ||
+            (uppers = int_max_value_uppers && lowers > int_max_value_lowers)
+          then `Error ("int overflow was found", pos)
+          else 
+            let acc = match is_negative with
+              | true -> (Printf.sprintf "-") ^ acc
+              | false -> acc in
+                `Success (Const (acc)) 
   in
-  acc_num pos ""
+    let find_abs is_negative pos  =
+      let rec acc_num pos acc =
+        if pos < length && is_digit text.[pos] then
+          acc_num (pos + 1) (acc ^ String.make 1 text.[pos])
+        else
+        if String.length acc > 0 then
+          let* const = overflow_check acc is_negative in
+            `Success(const, pos)
+        else
+        `Error ("", pos)
+      in
+        acc_num pos "" in
+          if pos < length && text.[pos] == '-' then 
+            find_abs true (find_ws text pos+1)
+          else find_abs false pos
+
 
 let find_ident_or_keyword text pos =
   let pos0 = find_ws text pos in
@@ -41,7 +66,7 @@ let find_ident_or_keyword text pos =
       if String.length acc > 0 then
         `Success (acc, pos)
       else
-        `Error pos0
+        `Error ("", pos0)
   in
   acc_id pos0 ""
 
@@ -51,7 +76,7 @@ let is_keyword s =
 let find_ident text pos0 =
   let* (s, pos) = find_ident_or_keyword text pos0 in
     if is_keyword s then
-      `Error pos0
+      `Error ("", pos0)
     else
       `Success (Var (Ident (s, pos0)), pos)
 
@@ -98,13 +123,13 @@ and find_factor text pos =
         if pos < find_len text && text.[pos] = ')' then
           `Success (e, pos + 1)
         else
-          `Error pos
+          `Error ("", pos)
   (* single const *)
-  else if pos < find_len text && is_digit text.[pos] then
+  else if pos < find_len text && (is_digit text.[pos] || text.[pos] == '-') then
     find_const text pos
   (* identificator aka var *)
   else if pos < find_len text && is_alpha text.[pos] then
     find_ident text pos
   (* unknown token *)
   else
-    `Error pos
+    `Error ("", pos)

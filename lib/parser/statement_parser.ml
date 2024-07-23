@@ -18,25 +18,32 @@ open Helpers.Bind
       | _ -> `Success (Greater, pos + 1)
     in
     let pos = find_ws text pos0 in
-    if pos >= find_len text then `Error pos0
+    if pos >= find_len text then `Error ("", pos0)
     else match text.[pos] with 
       | '=' -> `Success (Equal, pos + 1)
       | '<' -> find_after_less_oper pos
       | '>' -> find_after_right_oper pos
-      | _ -> `Error pos
+      | _ -> `Error ("", pos)
 
 (* take first expr, try to find comp oper, 
    combine it with second expr to form comparison *)
 let find_comparision text pos =
-  match find_expr text pos with 
-  | `Error pos -> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
-  | `Success (e1, pos) ->
-    match find_comp_oper text pos with
-    | `Error pos -> `Error ("Condition scheme invalid. An incorrect comparison operator may have been entered", pos)
-    | `Success (c_op, pos) ->
-      match find_expr text pos with
-      | `Error pos-> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
-      | `Success (e2, pos)-> `Success (Comparision (c_op, e1, e2), pos)
+  (* match find_expr text pos with 
+  | `Error (_,pos) -> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
+  | `Success (e1, pos) -> *)
+  let** (e1, pos) = 
+    (find_expr text pos),
+    "Condition scheme invalid. Some expressions may have been entered incorrectly"
+  in
+    let** (c_op, pos) = 
+      (find_comp_oper text pos),
+      "Condition scheme invalid. An incorrect comparison operator may have been entered" 
+    in
+        let** (e2, pos) = 
+          (find_expr text pos),
+         "Condition scheme invalid. Some expressions may have been entered incorrectly"
+        in
+         `Success (Comparision (c_op, e1, e2), pos)
 
 type end_marker = EOF | Word of string
 
@@ -95,15 +102,18 @@ and assignment_and_tail text pos ident prev_end_marker =
 let pos = find_ws text pos in
   if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
     let pos = find_ws text (pos + 2) in
-    match find_expr text pos with
+    (* match find_expr text pos with
     | `Error _-> `Error ("Empty assignment found. Please enter some expression", pos)
-    | `Success (exp, pos1) ->
-      let pos = find_ws text pos1 in
-        if pos < find_len text && text.[pos] = ';' then
-          let pos = find_ws text (pos + 1) in
-            let* (st, pos) = find_statements text pos prev_end_marker in
-              `Success (Assignment_and_tail ((ident, exp), st), pos)
-        else `Error ("Couldn't find ; in assignment", pos1)
+    | `Success (exp, pos1) -> *)
+      let** (exp, pos1) = (find_expr text pos),
+        "Empty assignment found. Please enter some expression"
+      in
+        let pos = find_ws text pos1 in
+          if pos < find_len text && text.[pos] = ';' then
+            let pos = find_ws text (pos + 1) in
+              let* (st, pos) = find_statements text pos prev_end_marker in
+                `Success (Assignment_and_tail ((ident, exp), st), pos)
+          else `Error ("Couldn't find ; in assignment", pos1)
 else `Error ("Couldn't find := in assignment", pos)
 
 (* forms a statement out of first found comparison 
