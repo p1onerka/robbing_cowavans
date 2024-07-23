@@ -123,13 +123,15 @@ and find_factor text pos =
         if pos < find_len text && text.[pos] = ')' then
           `Success (e, pos + 1)
         else
-          `Error ("", pos)
+          `Error ("", pos) 
   (* single const *)
   else if pos < find_len text && (is_digit text.[pos] || text.[pos] == '-') then
     find_const text pos
   (* identificator aka var *)
   else if pos < find_len text && is_alpha text.[pos] then
     find_ident text pos
+  else if pos < find_len text && text.[pos] == '-' then
+    let* (expr, pos) = find_expr text (pos + 1) in `Success (Binop (Minus, Const "0", expr), pos)
   (* unknown token *)
   else
     `Error ("", pos)
