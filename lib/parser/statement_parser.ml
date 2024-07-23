@@ -45,7 +45,10 @@ type end_marker = EOF | Word of string
    and calls corresponding func *)
 let rec find_statements text pos end_marker =
   let pos = find_ws text pos in
-  if pos >= find_len text && end_marker == EOF then `Success (Nothing, pos)
+  if pos >= find_len text then
+    match end_marker with
+    | EOF -> `Success (Nothing, pos)
+    | Word w ->  `Error (Printf.sprintf "Syntax error occured. Expected '%s' but eof was reached" w, pos) 
   else match find_ident_or_keyword text pos with
     | `Error _ -> `Error ("Syntax error occured, the code doesn't match any scheme. The code block may not have been completed correctly", pos)
     | `Success (id_or_kw, pos1) ->
@@ -54,7 +57,11 @@ let rec find_statements text pos end_marker =
       | Word "while" -> wdd_and_tail text pos1 end_marker
       | Word "if" -> itef_and_tail text pos1 end_marker
       | Word id -> 
-        if (is_keyword id) then `Error ("Unidentified or incorrect keyword", pos)
+        if (is_keyword id) then
+          (let msg_expected_part = match end_marker with
+            |EOF -> ""
+            | Word w -> Printf.sprintf " (expected '%s') " w in
+            `Error ("Unidentified or incorrect keyword" ^ msg_expected_part, pos))
         else assignment_and_tail text pos1 (Ident (id, pos)) end_marker
       | EOF -> `Error ("Unexpected end of input", pos1)(* unreacheable *) 
 
@@ -108,7 +115,8 @@ and find_comp_and_nested_statements text pos statements_start_word statements_en
     | `Success (ssw, pos) when ssw = statements_start_word ->
       let* (st, pos) =  find_statements text pos statements_end_marker in
         `Success (comp_tree, st, pos)
-    | _ -> `Error ("Syntax error occured. The code doesn't match any scheme", pos))
+    | _ -> `Error ( Printf.sprintf "Syntax error occured.
+     The code doesn't match any scheme. Expexted '%s' " statements_start_word, pos))
 
 (* parses completely insides of wdd/itef statement and forms its "tail":
    link to next statement of program on current level (in current block) *)
