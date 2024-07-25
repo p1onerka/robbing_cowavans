@@ -1,3 +1,4 @@
+(*
 open Parser.Types
 open Helpers.Bind
 let codegen program =
@@ -142,4 +143,4 @@ let codegen program =
       Printf.fprintf output_file "addi sp, sp, -%d\naddi s0, sp, %d\n" stack_memory_allocated stack_memory_allocated;
       let* _ = codegen_statements ~is_main_thr:true program [] stack_memory_allocated in ();
       Printf.fprintf output_file "li a0, 0\nli a7, 93\necall\n";
-      `Success ""
+      `Success "" *)

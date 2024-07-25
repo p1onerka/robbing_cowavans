@@ -1,11 +1,5 @@
-while k > n do
-    if k < a then 
-        b := 5;
-        z := (b - 7) / 3;
-    else 
-    fi 
-    if k < b then
-        y := b + z;
-    else 
-    fi
-done
+func pipi (a, b, c ) {
+    d := 5; 
+    b := d + 5;
+    return d
+ }

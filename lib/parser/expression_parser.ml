@@ -71,7 +71,7 @@ let find_ident_or_keyword text pos =
   acc_id pos0 ""
 
 let is_keyword s =
-  s = "while" || s = "do" || s = "done" || s = "if" || s = "then" || s = "else" || s = "fi"
+  s = "while" || s = "do" || s = "done" || s = "if" || s = "then" || s = "else" || s = "fi" || s = "func"
 
 let find_ident text pos0 =
   let* (s, pos) = find_ident_or_keyword text pos0 in
