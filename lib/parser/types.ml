@@ -6,6 +6,7 @@ type expr =
   | Const of string
   | Var of ident
   | Binop of ariphm_oper * expr * expr
+  | Func_Call of expr * expr list (* expr here is Var *)
 
 type comp_oper = 
   | Less
@@ -25,4 +26,7 @@ type statements =
   (* string contains name, list -- args, expr is return expr *)
   | Function_and_tail of (string * ident list * statements) * statements
   | Return of expr * statements
+  | Function_Call of (ident * expr list) * statements
   | Nothing
+
+type context = int

@@ -114,6 +114,21 @@ and find_term_tail left text pos0 =
   else
     `Success (left, pos0)
 
+and find_arguments text pos =
+  let pos = find_ws text pos in
+  if pos < find_len text && text.[pos] = ')' then
+    `Success ([], pos + 1)
+  else
+    let* (arg, pos) = find_expr text pos in
+    let pos = find_ws text pos in
+    if pos < find_len text && text.[pos] = ',' then
+      let* (args, pos) = find_arguments text (pos + 1) in
+      `Success (arg :: args, pos)
+    else if pos < find_len text && text.[pos] = ')' then
+      `Success (arg :: [], pos + 1)
+    else
+      `Error ("", pos) 
+
 (* factor is name for atomic term: const, var, smth in brackets *)
 and find_factor text pos =
   let pos = find_ws text pos in
@@ -126,13 +141,19 @@ and find_factor text pos =
         else
           `Error ("", pos) 
   (* single const *)
-  else if pos < find_len text && (is_digit text.[pos] || text.[pos] == '-') then
+  else if pos < find_len text && (is_digit text.[pos] || text.[pos] = '-') then
     find_const text pos
   (* identificator aka var *)
   else if pos < find_len text && is_alpha text.[pos] then
-    find_ident text pos
-  else if pos < find_len text && text.[pos] == '-' then
-    let* (expr, pos) = find_expr text (pos + 1) in `Success (Binop (Minus, Const "0", expr), pos)
+    let* (ident, pos) = find_ident text pos in
+    if pos < find_len text && text.[pos] = '(' then
+      let* (args, pos) = find_arguments text (pos + 1) in
+      `Success (Func_Call (ident, args), pos)
+    else 
+      `Success (ident, pos)
+  else if pos < find_len text && text.[pos] = '-' then
+    let* (expr, pos) = find_expr text (pos + 1) in
+    `Success (Binop (Minus, Const "0", expr), pos)
   (* unknown token *)
   else
     `Error ("", pos)

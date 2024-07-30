@@ -14,6 +14,12 @@ let rec print_expr_levels expr level =
         (match op with Plus -> "+" | Minus -> "-" | Multiply -> "*" | Divide -> "/");
       print_expr_levels left (level + 1);
       print_expr_levels right (level + 1)
+  | Func_Call (Var(Ident(name, _)), args) ->
+    Printf.printf "%sFunction call\n" (String.make (level * 2) ' ');
+    Printf.printf "%s%s\n" (String.make ((level + 1) * 2) ' ') name;
+    List.iter (fun expr -> print_expr_levels expr ((level + 2))) args
+  | _->
+    Printf.printf "Error"
 
 let print_comparison_levels comparison level =
   let Comparision (c_op, left, right) = comparison in
@@ -56,12 +62,17 @@ let rec print_statements_levels statements level =
     Printf.printf "%sReturn \n" (String.make (level * 2) ' ');
     print_expr_levels expr (level + 1);
     print_statements_levels tail (level + 1)
+  | Function_Call ((Ident(name, _), args), tail) -> 
+    Printf.printf "%sFunction call\n" (String.make (level * 2) ' ');
+    Printf.printf "%s%s\n" (String.make ((level + 1) * 2) ' ') name;
+    List.iter (fun expr -> print_expr_levels expr ((level + 2) * 2)) args;
+    print_statements_levels tail (level + 1)
   | Nothing -> Printf.printf "%sNothing\n" (String.make (level * 2) ' ')
 
 
 let() =
   let parse_and_codegen_program program_text =
-    match find_statements program_text 0 EOF with
+    match find_statements program_text 0 EOF 0 with
     | `Error (msg, pos) -> error_processing program_text msg pos
     | `Success (prog, _) -> 
       print_statements_levels prog 0;
