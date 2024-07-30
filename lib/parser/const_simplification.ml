@@ -1,7 +1,6 @@
 (*
 open Types
 
-(* Сбор констант на одном уровне вложенности *)
 let rec collect_constants_addition acc = function
   | Binop (Plus, Const a, Const b) -> 
       let sum = (int_of_string a) + (int_of_string b) in
@@ -18,7 +17,6 @@ let rec collect_constants_addition acc = function
       left_constants @ right_constants @ acc
   | expr -> expr :: acc
 
-(* Суммирование констант и построение нового выражения *)
 let rec sum_constants = function
   | [] -> Const "0"
   | [expr] -> expr
@@ -48,7 +46,6 @@ let rec sub_constants = function
   | Const a :: Const b :: rest -> 
       sub_constants (Const (string_of_int ((int_of_string a) - (int_of_string b))) :: rest)
   | expr :: rest -> Binop (Minus, expr, sub_constants rest)
-(* Упрощение выражений *)
 (* connect overflow processing? *)
 let rec simplify_expr = function
   | Binop (Plus, left, right) ->
@@ -88,11 +85,9 @@ let rec simplify_expr = function
       end
   | other -> other
 
-(* Упрощение констант в условиях *)
 let simplify_comparison (Comparision (op, left, right)) =
   Comparision (op, simplify_expr left, simplify_expr right)
 
-(* Упрощение констант в высказываниях *)
 let rec simplify_statements = function
   | Assignment_and_tail ((ident, expr), tail) ->
       Assignment_and_tail ((ident, simplify_expr expr), simplify_statements tail)
@@ -102,7 +97,7 @@ let rec simplify_statements = function
       If_Then_Else_Fi_and_tail ((simplify_comparison comp, simplify_statements then_branch, simplify_statements else_branch, pos), simplify_statements tail)
   | Nothing -> Nothing
 
-   НОРМ КОНЧАЕТСЯ ТУТ *) 
+   END IS HERE *) 
 (*
 let simplify_expr expr =
   let rec gather_constants_and_vars expr =
