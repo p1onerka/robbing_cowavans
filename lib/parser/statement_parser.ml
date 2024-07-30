@@ -64,14 +64,24 @@ let rec find_statements text pos end_marker =
       | Word "while" -> wdd_and_tail text pos1 end_marker
       | Word "if" -> itef_and_tail text pos1 end_marker
       | Word "func" -> func_and_tail text pos1 end_marker
+      | Word "return" -> 
+        let pos = find_ws text pos1 in
+        let* (ret_expr, pos) = find_expr text pos in
+        let pos = find_ws text pos in
+        if pos < find_len text && text.[pos] = ';' then
+          let pos = find_ws text (pos + 1) in
+          let* (tail, pos) = find_statements text pos end_marker in
+          `Success (Return (ret_expr, tail), pos)
+        else
+          `Error ("Expected ';' after return expression", pos)
       | Word id -> 
-        if (is_keyword id) then
-          (let msg_expected_part = match end_marker with
-            |EOF -> ""
+        if is_keyword id then
+          let msg_expected_part = match end_marker with
+            | EOF -> ""
             | Word w -> Printf.sprintf " (expected '%s') " w in
-            `Error ("Unidentified or incorrect keyword" ^ msg_expected_part, pos))
+          `Error ("Unidentified or incorrect keyword" ^ msg_expected_part, pos)
         else assignment_and_tail text pos1 (Ident (id, pos)) end_marker
-      | EOF -> `Error ("Unexpected end of input", pos1)(* unreacheable *) 
+      | EOF -> `Error ("Unexpected end of input", pos1) (* unreacheable *)
 (*
 and find_args text pos = 
 
@@ -111,36 +121,53 @@ and find_args text pos =
 
 and parse_func_body text pos =
   let pos = find_ws text pos in
-  if pos >= find_len text || text.[pos] <> '{' then `Error ("Expected '{' at the beginning of function body", pos)
-  else
-    let pos = find_ws text (pos + 1) in
-    let* (body, pos) = find_statements text pos (Word "return") in
-    let pos = find_ws text pos in 
+  if pos >= find_len text || text.[pos] <> '{' then 
+    `Error ("Expected '{' at the beginning of function body", pos)
+  else 
+    let* (body, pos) = find_statements text (pos + 1) (Word "}") in
+    `Success (body, pos)
     (*
-    if pos + 6 <= find_len text && String.sub text pos 6 = "return" then
-      let pos = find_ws text (pos + 6) in *)
-      let* (ret_expr, pos) = find_expr text pos in
-      let pos = find_ws text pos in
-      if pos >= find_len text || text.[pos] <> '}' then
-        `Error ("Expected '}' at the end of function body", pos)
-      else
-        `Success (body, ret_expr, pos + 1)
-    (*else
-      `Error ("Expected 'return' in function body", pos)*)
+    if pos < find_len text && text.[pos] = '}' then 
+      `Success (body, pos + 1)
+    else 
+      `Error ("Expected '}' at the end of function body", pos) *)
 
-and func_and_tail text pos prev_end_marker = 
-  let pos = find_ws text pos in 
+(**
+and find_return text pos =
+  let pos = find_ws text pos in
+  if pos + 6 <= find_len text && String.sub text pos 6 = "return" then
+    let pos = find_ws text (pos + 6) in
+    let* (ret_expr, pos) = find_expr text pos in
+    let pos = find_ws text pos in
+    if pos < find_len text && text.[pos] = ';' then
+      `Success (Return (ret_expr), pos + 1)
+    else
+      `Error ("Expected ';' after return expression", pos)
+  else
+    `Error ("Expected 'return'", pos) *)
+  (*
+  else
+    let* (expr, pos) = find_expr text pos in
+    if pos < find_len text && text.[pos] = ';' then
+      `Success (Assignment_and_tail (Ident ("", pos), expr), pos + 1)
+    else
+      `Error ("Expected ';' after expression", pos) *)
+
+
+and func_and_tail text pos prev_end_marker =
+  let pos = find_ws text pos in
   match find_ident text pos with
   | `Success (Var(Ident(name, _)), pos) ->
     let** (args, pos) = (find_args text pos), "Function should have arguments in brackets" in
-    let** (body, return_expr, pos) = (parse_func_body text pos), "Function body is not valid" in
+    let** (body, pos) = (parse_func_body text pos), "Function body is not valid" in
     let* (tail, pos) = find_statements text pos prev_end_marker in
-    `Success (Function_and_tail ((name, args, return_expr, body), tail), pos)
+    `Success (Function_and_tail ((name, args, body), tail), pos)
   | `Success (Const _, pos) ->
     `Error ("Function name cannot be a constant", pos)
   | `Success (Binop (_, _, _), pos) ->
     `Error ("Function name cannot be a binary operation", pos)
   | `Error _ -> `Error ("Function should have a name", pos)
+
 
 and assignment_and_tail text pos ident prev_end_marker =
 let pos = find_ws text pos in

@@ -46,12 +46,15 @@ let rec print_statements_levels statements level =
     print_statements_levels st1 (level + 1);
     print_statements_levels st2 (level + 1);
     print_statements_levels tail (level + 1)
-  | Function_and_tail ((name, args, expr, st), tail) ->
+  | Function_and_tail ((name, args, st), tail) ->
     Printf.printf "%sFunction_and_tail\n" (String.make (level * 2) ' ');
     Printf.printf "%sFunction name: %s\n" (String.make ((level + 1) * 2) ' ') name;
     List.iter (fun (Ident (arg, _)) -> Printf.printf "%sArg: %s\n" (String.make ((level + 2) * 2) ' ') arg) args;
-    print_expr_levels expr (level + 1);
     print_statements_levels st (level + 1);
+    print_statements_levels tail (level + 1)
+  | Return ((expr), tail) ->
+    Printf.printf "%sReturn \n" (String.make (level * 2) ' ');
+    print_expr_levels expr (level + 1);
     print_statements_levels tail (level + 1)
   | Nothing -> Printf.printf "%sNothing\n" (String.make (level * 2) ' ')
 

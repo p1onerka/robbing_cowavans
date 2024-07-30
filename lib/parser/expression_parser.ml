@@ -60,7 +60,7 @@ let find_ident_or_keyword text pos =
   let pos0 = find_ws text pos in
   let length = find_len text in
   let rec acc_id pos acc =
-    if pos < length && is_alpha text.[pos] then
+    if pos < length && (is_alpha text.[pos] || text.[pos] == '}' || text.[pos] == '{') then
       acc_id (pos + 1) (acc ^ String.make 1 text.[pos])
     else
       if String.length acc > 0 then
@@ -71,7 +71,8 @@ let find_ident_or_keyword text pos =
   acc_id pos0 ""
 
 let is_keyword s =
-  s = "while" || s = "do" || s = "done" || s = "if" || s = "then" || s = "else" || s = "fi" || s = "func"
+  s = "while" || s = "do" || s = "done" || s = "if" || s = "then" 
+    || s = "else" || s = "fi" || s = "func" || s = "{" || s = "}"
 
 let find_ident text pos0 =
   let* (s, pos) = find_ident_or_keyword text pos0 in

@@ -23,5 +23,6 @@ type statements =
   | While_Do_Done_and_tail of (comparision * statements * int) * statements 
   | If_Then_Else_Fi_and_tail of (comparision * statements * statements * int) * statements
   (* string contains name, list -- args, expr is return expr *)
-  | Function_and_tail of (string * ident list * expr * statements) * statements
+  | Function_and_tail of (string * ident list * statements) * statements
+  | Return of expr * statements
   | Nothing
