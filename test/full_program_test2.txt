@@ -1,4 +1,4 @@
-acc:=1; n:=6;
+acc:=1; n:=7;
 if n <> 7 then
         while n>1 do
                 acc:=acc*n;

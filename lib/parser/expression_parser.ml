@@ -7,7 +7,7 @@ let is_digit c = c >= '0' && c <= '9'
 
 let is_whitespace c = c = ' ' || c = '\t' || c = '\n' || c = '\r'
 
-let is_alpha c = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_')
+let is_alpha c = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c = '_')
 
 (* ws = whitespaces *)
 let find_ws text pos =
@@ -51,7 +51,7 @@ let find_const text pos =
         `Error ("", pos)
       in
         acc_num pos "" in
-          if pos < length && text.[pos] == '-' then 
+          if pos < length && text.[pos] = '-' then 
             find_abs true (find_ws text pos+1)
           else find_abs false pos
 
@@ -144,6 +144,7 @@ and find_factor text pos =
     find_const text pos
   (* identificator aka var OR function call *)
   else if pos < find_len text && is_alpha text.[pos] then
+
     let* (ident, pos) = find_ident text pos in
     if pos < find_len text && text.[pos] = '(' then
       let* (args, pos) = find_arguments text (pos + 1) in
@@ -153,6 +154,7 @@ and find_factor text pos =
   else if pos < find_len text && text.[pos] = '-' then
     let* (expr, pos) = find_expr text (pos + 1) in
     `Success (Binop (Minus, Const "0", expr), pos)
+
   (* unknown token *)
   else
     `Error ("", pos)
