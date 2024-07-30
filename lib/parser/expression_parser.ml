@@ -55,7 +55,6 @@ let find_const text pos =
             find_abs true (find_ws text pos+1)
           else find_abs false pos
 
-
 let find_ident_or_keyword text pos =
   let pos0 = find_ws text pos in
   let length = find_len text in
@@ -143,7 +142,7 @@ and find_factor text pos =
   (* single const *)
   else if pos < find_len text && (is_digit text.[pos] || text.[pos] = '-') then
     find_const text pos
-  (* identificator aka var *)
+  (* identificator aka var OR function call *)
   else if pos < find_len text && is_alpha text.[pos] then
     let* (ident, pos) = find_ident text pos in
     if pos < find_len text && text.[pos] = '(' then

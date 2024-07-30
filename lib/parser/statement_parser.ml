@@ -88,19 +88,6 @@ let rec find_statements text pos end_marker context_level =
           assignment_and_tail text pos1 (Ident (id, pos)) end_marker context_level
       | EOF -> `Error ("Unexpected end of input", pos1) (* unreachable *)
 
-(*
-and find_args text pos = 
-
-and func_and_tail text pos prev_end_marker = 
-  let pos = find_ws text pos in 
-  match find_ident text pos with
-  |`Success(name, pos) ->
-    (if text.[pos] = '(' then 
-      find_args text pos
-    else 
-      `Error ("Arguments should be in breackets", pos))
-  |`Error(_, pos) -> `Error ("function should have name", pos) *)
-
 and find_args text pos = 
   let pos = find_ws text pos in
   let rec parse_args pos acc =
@@ -140,11 +127,6 @@ and parse_func_body text pos context_level =
   else 
     let* (body, pos) = find_statements text (pos + 1) (Word "}") context_level in
     `Success (body, pos)
-    (*
-    if pos < find_len text && text.[pos] = '}' then 
-      `Success (body, pos + 1)
-    else 
-      `Error ("Expected '}' at the end of function body", pos) *)
 
 and func_and_tail text pos prev_end_marker context_level =
   let pos = find_ws text pos in
