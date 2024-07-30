@@ -135,91 +135,98 @@ let compose_live_intervals program =
             in
               `Success (transfer IntervalMinStartHeap.empty live_intervals_billet)
 
-let rec expire_old_intervals pos active0 free_regs vars protected depth stack_memory_info output_file =
-  match IntervalMinFinishHeap.take active0 with
-  | None -> (active0, free_regs, vars, protected, stack_memory_info)
+let rec expire_old_intervals pos context output_file =
+  match IntervalMinFinishHeap.take context.active with
+  | None -> context
   | Some (active, interval) -> 
-    if interval.finish >= pos then (active0, free_regs, vars, protected, stack_memory_info)
+    if interval.finish >= pos then context
       (*snd is Reg "fake reg" cause it is unused in varheap_eq*)
-    else  match VarHeap.remove_one varheap_eq (fst interval.ident_and_tags, Reg "fake reg") vars with
+    else  match VarHeap.remove_one varheap_eq (fst interval.ident_and_tags, Reg "fake reg") context.vars with
       | Some (_, Reg r), vars ->
-        let protected = let depth_diff =  List.length (snd interval.ident_and_tags) - depth in
-          if depth_diff >= 0 then protected
-          else let stack_memory_info = stack_memory_check stack_memory_info output_file in
-            let offset = - (fst stack_memory_info + 8) in
-              Printf.fprintf output_file "sd %s, %d(s0)\n" r offset;
-              (r, offset, depth_diff)::protected
+        let protected, stack_memory_info =
+         let depth_diff =  List.length (snd interval.ident_and_tags) - context.depth in
+            if depth_diff >= 0 then context.protected, context.stack_memory_info
+            else let stack_memory_info = stack_memory_check context.stack_memory_info output_file in
+              let offset = - (fst stack_memory_info + 8) in
+                Printf.fprintf output_file "sd %s, %d(s0)\n" r offset;
+                 (r, offset, depth_diff)::context.protected, stack_memory_info
         in
-          let free_regs = FStack.push r free_regs in
-            expire_old_intervals pos active free_regs vars protected depth stack_memory_info output_file
+          let free_regs = FStack.push r context.free_regs in
+            let context = {
+              active = active;
+              vars = vars; 
+              protected = protected;
+              stack_memory_info = stack_memory_info;
+              free_regs = free_regs;
+              depth = context.depth
+              } in
+            expire_old_intervals pos context output_file
       | _ -> failwith "file live_intervals.ml/fun expire_old_intervals" (*unreachable*)
 
 (*does'nt add allocated reg to free_regs!!! *)
-let rec spill_allocated untouchables active vars protected depth stack_memory_info output_file =
-  match IntervalMinFinishHeap.remove_bottommost active with
+let rec spill_allocated untouchables context output_file =
+  match IntervalMinFinishHeap.remove_bottommost context.active with
   | None,_ -> failwith "there are not enough registers"
   | Some interval, active -> (match List.find_opt (fun a -> a = get_id interval) untouchables with
-    | Some _ ->  let r, active, vars, free_regs, protected, stack_memory_info =
-      spill_allocated untouchables active vars protected depth stack_memory_info output_file in
-        (r, (IntervalMinFinishHeap.add active interval), vars, free_regs, protected, stack_memory_info)
+    | Some _ ->  let r, context =
+      spill_allocated untouchables {context with active = active} output_file in
+        r,  {context with active = (IntervalMinFinishHeap.add active interval)}
     | None ->
   (*increase stack allocated memory if that's necesary*)
-      let stack_memory_info = stack_memory_check stack_memory_info output_file in
-        let var, vars = VarHeap.remove_one varheap_eq (fst interval.ident_and_tags, Reg "fake reg") vars in
+      let stack_memory_info = stack_memory_check context.stack_memory_info output_file in
+        let var, vars = VarHeap.remove_one varheap_eq (fst interval.ident_and_tags, Reg "fake reg") context.vars in
           match var with
           | Some (ident, Reg r ) ->
             let offset = - (fst stack_memory_info + 8) in
               Printf.fprintf output_file "sd %s, %d(s0)\n" r (offset);
               let vars = VarHeap.add vars (ident, OnStack (offset, interval)) in
-              let protected = let depth_diff =  List.length (snd interval.ident_and_tags) - depth in
-                if depth_diff < 0 then (r, offset, depth_diff) :: protected else protected
+              let protected = 
+                let depth_diff =  List.length (snd interval.ident_and_tags) - context.depth in
+                  if depth_diff < 0 then (r, offset, depth_diff) :: context.protected
+                  else context.protected
               in
                 let stack_memory_info = ((fst stack_memory_info) + 8, snd stack_memory_info) in
-                  (r, active, vars, (FStack.create), protected, stack_memory_info)
+                    r, { context with vars = vars; protected = protected; stack_memory_info = stack_memory_info; active = active}
           | _ -> failwith "file live_intervals.ml/fun spill allocated" (*unreachable*))
 
-let rec get_free_reg ?(eoi_applied = false) untouchables pos free_regs active vars protected depth stack_memory_info output_file =
-  match FStack.pop free_regs with
+let rec get_free_reg ?(eoi_applied = false) untouchables pos context output_file =
+  match FStack.pop context.free_regs with
   | None ->
     if not eoi_applied then
-      let active, free_regs, vars, protected, stack_memory_info =
-        expire_old_intervals pos active free_regs vars protected depth stack_memory_info output_file
+      let context =
+        expire_old_intervals pos context output_file
       in
-        get_free_reg ~eoi_applied:true untouchables pos free_regs active vars protected depth stack_memory_info output_file
+        get_free_reg ~eoi_applied:true untouchables pos context output_file
     else 
-      spill_allocated untouchables active vars protected depth stack_memory_info output_file
-  | Some (free_regs, r) -> (r, active, vars, free_regs, protected, stack_memory_info)
+      spill_allocated untouchables context output_file
+  | Some (free_regs, r) -> r, {context with free_regs = free_regs} 
 
 (* doesn't add to active!*)
-let move_spilled_var_to_reg  ?(reg = None) untouchables pos offset interval active free_regs vars protected depth stack_memory_info output_file =
-    let vars = VarHeap.delete_one varheap_eq (fst interval.ident_and_tags, Reg "fake reg") vars in
-      let allocated_reg, active, vars, free_regs, protected, stack_memory_info = match reg with
-        | None -> (*(match FStack.pop free_regs with
-          | None -> spill_allocated ~untouchables:untouchables active vars protected depth stack_memory_info output_file
-          | Some (free_regs, allocated_reg) -> 
-            (allocated_reg, active, vars, free_regs, protected, stack_memory_info)) *)
-            get_free_reg untouchables pos free_regs active vars protected depth stack_memory_info output_file
-        | Some r -> (r, active, vars, free_regs, protected, stack_memory_info)
+let move_spilled_var_to_reg  ?(reg = None) untouchables pos offset interval context output_file =
+    let vars = VarHeap.delete_one varheap_eq (fst interval.ident_and_tags, Reg "fake reg") context.vars in
+      let allocated_reg, context = match reg with
+        | None -> 
+            get_free_reg untouchables pos context output_file
+        | Some r -> r, {context with vars = vars}
       in
         Printf.fprintf output_file "ld %s, %d(s0)\n" allocated_reg offset;
         let vars = VarHeap.add vars (fst interval.ident_and_tags, Reg allocated_reg) in
-          (allocated_reg, active, vars, free_regs, protected, stack_memory_info)
+          allocated_reg, {context with vars = vars}
 
-let rec initially_to_reg_alloc untouchables pos live_intervals free_regs active vars protected depth  stack_memory_info output_file =
+let rec initially_to_reg_alloc untouchables pos live_intervals context output_file =
   match IntervalMinStartHeap.take live_intervals with
     | Some (live_intervals, interval) when interval.start < pos -> 
-      initially_to_reg_alloc untouchables pos live_intervals free_regs active vars protected depth stack_memory_info output_file
+      initially_to_reg_alloc untouchables pos live_intervals context output_file
     | Some (live_intervals, interval) when interval.start = pos ->
-      let active, free_regs, vars, protected, stack_memory_info =
-        expire_old_intervals pos active free_regs vars protected depth stack_memory_info output_file
+      let context =
+        expire_old_intervals pos context output_file
       in
-        let allocated_reg, active, vars, free_regs, protected, stack_memory_info = match FStack.pop free_regs with 
-          | None -> spill_allocated untouchables active vars protected depth stack_memory_info output_file
+        let allocated_reg, context = match FStack.pop context.free_regs with 
+          | None -> spill_allocated untouchables context output_file
           | Some (free_regs, allocated_reg) -> 
-            (allocated_reg, active, vars, free_regs, protected, stack_memory_info)
+            allocated_reg, {context with free_regs = free_regs}
         in
-          let active = IntervalMinFinishHeap.add active interval in
-          let vars = VarHeap.add vars (fst interval.ident_and_tags, Reg allocated_reg) in
-            (allocated_reg, live_intervals, active, vars, free_regs, protected, stack_memory_info)
+          let active = IntervalMinFinishHeap.add context.active interval in
+          let vars = VarHeap.add context.vars (fst interval.ident_and_tags, Reg allocated_reg) in
+            allocated_reg, live_intervals, {context with active = active; vars = vars} 
     | _ -> failwith "file live_intervals.ml/fun initially_reg_allocated" (*unreachable*)
-        

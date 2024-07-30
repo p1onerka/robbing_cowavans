@@ -30,6 +30,7 @@ type var_s_placement =
   | Reg of string
   | OnStack of int * var_live_interval
 
+
 module IntervalMinFinishHeap = CCHeap.Make(
     struct type t = var_live_interval
     let leq x y = x.finish <= y.finish  end );;
@@ -55,17 +56,19 @@ module VarHeap = CCHeap.Make(
     end);;
 
 module type FStack_i = sig
-  val create : 'a list
-  val is_empty : 'a list -> bool
-  val push : 'a -> 'a list -> 'a list
-  val pop : 'a list -> ('a list * 'a) option
-  val peek : 'a list -> 'a option
-  val add_list: 'a list -> 'a list -> 'a list
+  type 'a fstack
+  val create : 'a fstack
+  val is_empty : 'a fstack -> bool
+  val push : 'a -> 'a fstack -> 'a fstack
+  val pop : 'a fstack -> ('a fstack * 'a) option
+  val peek : 'a fstack -> 'a option
+  val add_list: 'a fstack -> 'a list -> 'a fstack
 
-  val iter: ('a -> unit) -> 'a list -> unit
+  val iter: ('a -> unit) -> 'a fstack -> unit
 end
 
 module FStack : FStack_i = struct
+ type 'a fstack = 'a list
   let create = []
   let is_empty = function 
     | [] -> true
@@ -88,3 +91,15 @@ module FStack : FStack_i = struct
   | [] -> ()
   | l -> List.iter f l
 end
+
+(*stack_memory_info is occupied stack memory size and allocated stack memory size *)
+(*depth = last do/then/else block's (for which this expr is inner) depth*)
+(*protected = reg, offset, depth_diff: list for return due vars to their regs after loop*)
+type context = {
+  vars : VarHeap.t;
+  active : IntervalMinFinishHeap.t;
+  free_regs : string FStack.fstack;
+  protected : (string*int*int) list;
+  depth : int;
+  stack_memory_info : int*int;
+}
