@@ -6,6 +6,7 @@ type expr =
   | Const of string
   | Var of ident
   | Binop of ariphm_oper * expr * expr
+  | Func_Call of expr * expr list (* expr here is Var *)
 
 type comp_oper = 
   | Less
@@ -22,7 +23,14 @@ type statements =
   (*next 2 lines: int conatains start_pos*)
   | While_Do_Done_and_tail of (comparision * statements * int) * statements 
   | If_Then_Else_Fi_and_tail of (comparision * statements * statements * int) * statements
+
+  (* string contains name, list -- args, expr is return expr *)
+  | Function_and_tail of (string * ident list * statements) * statements
+  | Return of expr * statements
+  | Function_Call of (ident * expr list) * statements
   | Nothing
+
+type context = int
 
 type var_live_interval = {start : int; finish : int; ident_and_tags : ident * string list }
 
