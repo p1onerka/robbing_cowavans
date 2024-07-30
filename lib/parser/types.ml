@@ -13,7 +13,7 @@ type comp_oper =
   | Less_or_equal
   | Greater_or_equal
   | Equal
-  | Not_equal 
+  | Not_equal
 
 type comparision = Comparision of comp_oper * expr * expr
 
@@ -23,3 +23,68 @@ type statements =
   | While_Do_Done_and_tail of (comparision * statements * int) * statements 
   | If_Then_Else_Fi_and_tail of (comparision * statements * statements * int) * statements
   | Nothing
+
+type var_live_interval = {start : int; finish : int; ident_and_tags : ident * string list }
+
+type var_s_placement =
+  | Reg of string
+  | OnStack of int * var_live_interval
+
+module IntervalMinFinishHeap = CCHeap.Make(
+    struct type t = var_live_interval
+    let leq x y = x.finish <= y.finish  end );;
+
+module IntervalMinStartHeap = CCHeap.Make(
+    struct type t = var_live_interval
+    let leq x y = x.start <= y.start  end );;
+
+module IntervalIdHeap = CCHeap.Make(
+  struct type t = var_live_interval
+  let leq x y =
+    let Ident (x_id,_), _ = x.ident_and_tags in
+    let Ident (y_id,_), _ = y.ident_and_tags in
+      x_id <= y_id
+  end);;
+
+module VarHeap = CCHeap.Make(
+    struct type t = ident * var_s_placement
+    let leq x y =
+      let Ident (x_id,_) = fst x in
+      let Ident (y_id,_) = fst y in
+        x_id <= y_id
+    end);;
+
+module type FStack_i = sig
+  val create : 'a list
+  val is_empty : 'a list -> bool
+  val push : 'a -> 'a list -> 'a list
+  val pop : 'a list -> ('a list * 'a) option
+  val peek : 'a list -> 'a option
+  val add_list: 'a list -> 'a list -> 'a list
+
+  val iter: ('a -> unit) -> 'a list -> unit
+end
+
+module FStack : FStack_i = struct
+  let create = []
+  let is_empty = function 
+    | [] -> true
+    | _ -> false
+  let push el = function
+    | [] ->  el::[]
+    | list -> el::list
+  let pop = function
+    | [] -> None
+    | hd::tl -> Some (tl, hd)
+  
+  let peek = function
+    |[] -> None
+    | hd::_ -> Some hd
+  
+  let add_list list = function
+  | [] -> list
+  | l -> List.append l list
+  let iter f = function
+  | [] -> ()
+  | l -> List.iter f l
+end

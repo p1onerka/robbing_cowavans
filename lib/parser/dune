@@ -1,4 +1,4 @@
 (library
 (name parser)
-(libraries helpers)
+(libraries helpers CCHeap)
 (modules types readfile expression_parser statement_parser error_processing))
