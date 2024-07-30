@@ -30,7 +30,7 @@ type statements =
   | Function_Call of (ident * expr list) * statements
   | Nothing
 
-type context = int
+type context = int (* maybe delete it later *)
 
 type var_live_interval = {start : int; finish : int; ident_and_tags : ident * string list }
 
