@@ -269,3 +269,4 @@ let codegen program =
               codegen_statements program init_live_intervals init_context
           in
             Printf.fprintf output_file "li a0, 0\nli a7, 93\necall\n"; `Success ""
+*)

@@ -50,20 +50,20 @@ type end_marker = EOF | Word of string
 (* wdd = while-do-done, itef = if-then-else-fi *)
 (* defines kind of statement by starting keyword 
    and calls corresponding func *)
-let rec find_statements text pos end_marker context_level =
+let rec find_statements text pos end_marker context_level cur_func_list =
   let pos = find_ws text pos in
   if pos >= find_len text then
     match end_marker with
-    | EOF -> `Success (Nothing, pos)
+    | EOF -> `Success (Nothing, cur_func_list, pos)
     | Word w -> `Error (Printf.sprintf "Syntax error occured. Expected '%s' but eof was reached" w, pos) 
   else match find_ident_or_keyword text pos with
     | `Error _ -> `Error ("Syntax error occured, the code doesn't match any scheme. The code block may not have been completed correctly", pos)
     | `Success (id_or_kw, pos1) ->
       match Word id_or_kw with
-      | em when em = end_marker -> `Success (Nothing, pos1)
-      | Word "while" -> if context_level = 0 then `Error ("Loop found in global zone", pos1) else wdd_and_tail text pos1 end_marker context_level
-      | Word "if" -> if context_level = 0 then `Error ("Conditional statement found in global zone", pos1) else itef_and_tail text pos1 end_marker context_level
-      | Word "func" -> func_and_tail text pos1 end_marker (context_level + 1)
+      | em when em = end_marker -> `Success (Nothing, cur_func_list, pos1)
+      | Word "while" -> if context_level = 0 then `Error ("Loop found in global zone", pos1) else wdd_and_tail text pos1 end_marker context_level 
+      | Word "if" -> if context_level = 0 then `Error ("Conditional statement found in global zone", pos1) else itef_and_tail text pos1 end_marker context_level 
+      | Word "func" -> func_and_tail text pos1 end_marker (context_level + 1) cur_func_list
       | Word "return" -> 
         if context_level = 0 then `Error ("Return statement found in global zone", pos1)
         else
@@ -72,8 +72,8 @@ let rec find_statements text pos end_marker context_level =
           let pos = find_ws text pos in
           if pos < find_len text && text.[pos] = ';' then
             let pos = find_ws text (pos + 1) in
-            let* (tail, pos) = find_statements text pos end_marker context_level in
-            `Success (Return (ret_expr, tail), pos)
+            let* (tail, _, pos) = find_statements text pos end_marker context_level [] in
+            `Success (Return (ret_expr, tail), [], pos)
           else
             `Error ("Expected ';' after return expression", pos)
       | Word id -> 
@@ -85,7 +85,7 @@ let rec find_statements text pos end_marker context_level =
         else if context_level = 0 then
           `Error ("Expression or assignment found in global zone", pos1)
         else
-          assignment_and_tail text pos1 (Ident (id, pos)) end_marker context_level
+          assignment_and_tail text pos1 (Ident (id, pos)) end_marker context_level []
       | EOF -> `Error ("Unexpected end of input", pos1) (* unreachable *)
 
 and find_args text pos = 
@@ -120,22 +120,22 @@ and find_args text pos =
   if text.[pos] = '(' then parse_args (pos + 1) []
   else `Error ("Expected '(' at the beginning of argument list", pos) 
 
-and parse_func_body text pos context_level =
+and parse_func_body text pos context_level cur_func_list =
   let pos = find_ws text pos in
   if pos >= find_len text || text.[pos] <> '{' then 
     `Error ("Expected '{' at the beginning of function body", pos)
   else 
-    let* (body, pos) = find_statements text (pos + 1) (Word "}") context_level in
-    `Success (body, pos)
+    let* (body, new_list, pos) = find_statements text (pos + 1) (Word "}") context_level cur_func_list in
+    `Success (body, new_list, pos)
 
-and func_and_tail text pos prev_end_marker context_level =
+and func_and_tail text pos prev_end_marker context_level cur_func_list =
   let pos = find_ws text pos in
   match find_ident text pos with
-  | `Success (Var(Ident(name, _)), pos) ->
+  | `Success (Var(Ident(name, pos0)), pos) ->
     let** (args, pos) = (find_args text pos), "Function should have arguments in brackets" in
-    let** (body, pos) = (parse_func_body text pos context_level), "Function body is not valid" in
-    let* (tail, pos) = find_statements text pos prev_end_marker (context_level - 1) in
-    `Success (Function_and_tail ((name, args, body), tail), pos)
+    let** (body, new_list, pos) = (parse_func_body text pos context_level ((Ident(name, pos0), List.length args) :: cur_func_list)), "Function body is not valid" in
+    let* (tail, _, pos) = find_statements text pos prev_end_marker (context_level - 1) [] in
+    `Success (Function_and_tail ((Ident(name, pos0), args, (body, new_list)), tail), new_list, pos)
   | `Success (Const _, pos) ->
     `Error ("Function name cannot be a constant", pos)
   | `Success (Binop (_, _, _), pos) ->
@@ -145,7 +145,7 @@ and func_and_tail text pos prev_end_marker context_level =
   | `Error _ -> `Error ("Function should have a name", pos)
 
 
-and assignment_and_tail text pos ident prev_end_marker context_level =
+and assignment_and_tail text pos ident prev_end_marker context_level cur_func_list =
   let pos = find_ws text pos in
   if pos + 1 < find_len text && text.[pos] = ':' && text.[pos + 1] = '=' then
     let pos = find_ws text (pos + 2) in
@@ -155,8 +155,8 @@ and assignment_and_tail text pos ident prev_end_marker context_level =
       let pos = find_ws text pos1 in
         if pos < find_len text && text.[pos] = ';' then
           let pos = find_ws text (pos + 1) in
-            let* (st, pos) = find_statements text pos prev_end_marker context_level in
-              `Success (Assignment_and_tail ((ident, exp), st), pos)
+            let* (st, _, pos) = find_statements text pos prev_end_marker context_level cur_func_list in
+              `Success (Assignment_and_tail ((ident, exp), st), [], pos)
         else `Error ("Couldn't find ; in assignment", pos1)
   else `Error ("Couldn't find := in assignment", pos)
 
@@ -167,8 +167,8 @@ and find_comp_and_nested_statements text pos statements_start_word statements_en
   let* (comp_tree, pos) = find_comparision text pos in
     (match find_ident_or_keyword text pos with
     | `Success (ssw, pos) when ssw = statements_start_word ->
-      let* (st, pos) =  find_statements text pos statements_end_marker context_level in
-        `Success (comp_tree, st, pos)
+      let* (st, func_list, pos) =  find_statements text pos statements_end_marker context_level [] in
+        `Success (comp_tree, st, func_list, pos)
     | _ -> `Error ( Printf.sprintf "Syntax error occured.
      The code doesn't match any scheme. Expexted '%s' " statements_start_word, pos))
 
@@ -176,13 +176,13 @@ and find_comp_and_nested_statements text pos statements_start_word statements_en
    link to next statement of program on current level (in current block) *)
 and wdd_and_tail text pos prev_end_marker context_level = 
   let start_pos = pos in
-  let* (comp_tree, st, pos) = find_comp_and_nested_statements text pos "do" (Word "done") context_level in
-    let* (tail, pos) = find_statements text pos prev_end_marker context_level in 
-      `Success (While_Do_Done_and_tail ((comp_tree, st, start_pos), tail), pos)
+  let* (comp_tree, st, new_list, pos) = find_comp_and_nested_statements text pos "do" (Word "done") context_level in
+    let* (tail, _, pos) = find_statements text pos prev_end_marker context_level [] in 
+      `Success (While_Do_Done_and_tail ((comp_tree, (st, new_list), start_pos), tail), [], pos)
 
 and itef_and_tail text pos prev_end_marker context_level =
   let start_pos = pos in 
-  let* (comp_tree, st1, pos) = find_comp_and_nested_statements text pos "then" (Word "else") context_level in
-    let* (st2, pos) = find_statements text pos (Word "fi") context_level in
-      let* (tail, pos) = find_statements text pos prev_end_marker context_level in 
-        `Success (If_Then_Else_Fi_and_tail ((comp_tree, st1, st2, start_pos), tail), pos)
+  let* (comp_tree, st1, new_list1, pos) = find_comp_and_nested_statements text pos "then" (Word "else") context_level in
+    let* (st2, new_list2, pos) = find_statements text pos (Word "fi") context_level [] in
+      let* (tail, _, pos) = find_statements text pos prev_end_marker context_level [] in 
+        `Success (If_Then_Else_Fi_and_tail ((comp_tree, (st1, new_list1), (st2, new_list2), start_pos), tail), [], pos)
