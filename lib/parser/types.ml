@@ -21,16 +21,17 @@ type comparision = Comparision of comp_oper * expr * expr
 type statements = 
   | Assignment_and_tail of (ident * expr) * statements
   (*next 2 lines: int conatains start_pos*)
-  | While_Do_Done_and_tail of (comparision * statements * int) * statements 
-  | If_Then_Else_Fi_and_tail of (comparision * statements * statements * int) * statements
+  | While_Do_Done_and_tail of (comparision * (statements * (ident*int) list) * int) * statements 
+  | If_Then_Else_Fi_and_tail of (comparision * (statements * (ident*int) list) * (statements * (ident*int) list) * int) * statements
 
   (* string contains name, list -- args, expr is return expr *)
-  | Function_and_tail of (string * ident list * statements) * statements
+  | Function_and_tail of (ident * ident list * (statements * (ident*int) list)) * statements
   | Return of expr * statements
   | Function_Call of (ident * expr list) * statements
   | Nothing
 
-type context = int (* maybe delete it later *)
+
+type state = int (* maybe need to change it somewhere when we make it work *)
 
 type var_live_interval = {start : int; finish : int; ident_and_tags : ident * string list }
 

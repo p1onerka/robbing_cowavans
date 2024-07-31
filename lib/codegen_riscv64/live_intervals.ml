@@ -1,5 +1,5 @@
-open Parser.Types
-open Helpers.Bind
+(*open Parser.Types
+open Helpers.Bind*)
 
 (*for debugging*)
 (* let print_intervalsHeap h =
@@ -23,6 +23,7 @@ let rec print_intervalsMFHeap_sorted h =
     let Ident (id, _), tags = elt.ident_and_tags in Printf.printf "id: %s\ntags: " id; List.iter (fun tag -> Printf.printf "%s " tag ) tags; 
     Printf.printf "\n" in print x; print_intervalsMFHeap_sorted h) *)
 
+    (*
 let varheap_eq v1 v2 = let Ident (id1,_), Ident (id2,_)  = fst v1, fst v2 in
   String.equal id1 id2
 let get_id interval = let Ident (id, _) = fst interval.ident_and_tags in id
@@ -230,3 +231,4 @@ let rec initially_to_reg_alloc untouchables pos live_intervals context output_fi
           let vars = VarHeap.add context.vars (fst interval.ident_and_tags, Reg allocated_reg) in
             allocated_reg, live_intervals, {context with active = active; vars = vars} 
     | _ -> failwith "file live_intervals.ml/fun initially_reg_allocated" (*unreachable*)
+    *)

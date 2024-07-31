@@ -98,7 +98,8 @@ let rec simplify_statements = function
       If_Then_Else_Fi_and_tail ((simplify_comparison comp, simplify_statements then_branch, simplify_statements else_branch, pos), simplify_statements tail)
   | Nothing -> Nothing
 
-   ENDS HERE *) 
+   END IS HERE *) 
+
 (*
 let simplify_expr expr =
   let rec gather_constants_and_vars expr =
