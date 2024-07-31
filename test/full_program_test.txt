@@ -1,16 +1,19 @@
-acc:=1; n:=8;
-while n>1 do
-    acc:=acc*n;
-    n:=n-1;
-    if n = 6 then
-        k:= n;
-        a:=0;
-        fib_acc := 1;
-        while k>1 do
-            fib_acc:=a + fib_acc;
-            a:= fib_acc - a;
-            k:=k-1;
-        done
-    else fi
-done
-e := n - acc;
+func sum (a, b) {
+    return a+b;
+}
+func main() {
+    a := 10;
+    if a < 5 then
+        func sub (a, b) {
+        return a;
+        }
+        func subi (a, b) {
+        return b;
+        }
+        a := sub(a, 1);
+    else 
+        func bibi () {
+            return 0;
+        }
+    fi
+}

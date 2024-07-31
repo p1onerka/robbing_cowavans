@@ -34,10 +34,10 @@ let print_comparison_levels comparison level =
   print_expr_levels left (level + 1);
   print_expr_levels right (level + 1)
 
-let print_ident_int_list list level =
-  Printf.printf "HERE %d\n" (List.length list);
+let print_ident_int_list list =
+  Printf.printf "LIST OF INSIDES: \n";
   List.iter (fun (Ident (ident, _), pos) ->
-    Printf.printf "%sIdent: %s, Pos: %d\n" (String.make (level * 2) ' ') ident pos
+    Printf.printf " Ident: %s, Args: %d\n" ident pos 
   ) list
 
 let rec print_statements_levels statements level =
@@ -51,22 +51,26 @@ let rec print_statements_levels statements level =
     Printf.printf "%sWhile_Do_Done_and_tail\n" (String.make (level * 2) ' ');
     print_comparison_levels comp (level + 1);
     print_statements_levels st (level + 1);
-    print_ident_int_list ident_int_list (level + 1);
+    Printf.printf "WHILE ";
+    print_ident_int_list ident_int_list;
     print_statements_levels tail (level + 1)
   | If_Then_Else_Fi_and_tail ((comp, (st1, ident_int_list1), (st2, ident_int_list2), _), tail) ->
     Printf.printf "%sIf_Then_Else_Fi_and_tail\n" (String.make (level * 2) ' ');
     print_comparison_levels comp (level + 1);
     print_statements_levels st1 (level + 1);
-    print_ident_int_list ident_int_list1 (level + 1);
+    Printf.printf "THEN BRANCH ";
+    print_ident_int_list ident_int_list1;
     print_statements_levels st2 (level + 1);
-    print_ident_int_list ident_int_list2 (level + 1);
+    Printf.printf "ELSE BRANCH ";
+    print_ident_int_list ident_int_list2;
     print_statements_levels tail (level + 1)
   | Function_and_tail ((Ident (name, _), args, (st, ident_int_list)), tail) ->
     Printf.printf "%sFunction_and_tail\n" (String.make (level * 2) ' ');
     Printf.printf "%sFunction name: %s\n" (String.make ((level + 1) * 2) ' ') name;
     List.iter (fun (Ident (arg, _)) -> Printf.printf "%sArg: %s\n" (String.make ((level + 2) * 2) ' ') arg) args;
     print_statements_levels st (level + 1);
-    print_ident_int_list ident_int_list (level + 1);
+    Printf.printf "FUNCTION ";
+    print_ident_int_list ident_int_list;
     print_statements_levels tail (level + 1)
   | Return (expr, tail) ->
     Printf.printf "%sReturn \n" (String.make (level * 2) ' ');
@@ -85,8 +89,10 @@ let() =
   let parse_and_codegen_program program_text =
     match find_statements program_text 0 EOF 0 [] with
     | `Error (msg, pos) -> error_processing program_text msg pos
-    | `Success (prog, _, _) -> 
+    | `Success (prog, prog_list, _) -> 
       print_statements_levels prog 0;
+      Printf.printf "MAIN ";
+      print_ident_int_list prog_list;
       (* match codegen (simplify_statements prog) with 
       match codegen prog with
       |`Error (msg, pos) -> error_processing program_text msg pos

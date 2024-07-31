@@ -134,8 +134,8 @@ and func_and_tail text pos prev_end_marker context_level cur_func_list =
   | `Success (Var(Ident(name, pos0)), pos) ->
     let** (args, pos) = (find_args text pos), "Function should have arguments in brackets" in
     let** (body, new_list, pos) = (parse_func_body text pos context_level []), "Function body is not valid" in
-    let* (tail, _, pos) = find_statements text pos prev_end_marker (context_level - 1) new_list in
-    `Success (Function_and_tail ((Ident(name, pos0), args, (body, new_list)), tail), ((Ident(name, pos0), List.length args) :: cur_func_list), pos)
+    let* (tail, new_tail_list, pos) = find_statements text pos prev_end_marker (context_level - 1) ((Ident(name, pos0), List.length args) :: cur_func_list) in
+    `Success (Function_and_tail ((Ident(name, pos0), args, (body, new_list)), tail), ((Ident(name, pos0), List.length args) :: new_tail_list), pos)
   | `Success (Const _, pos) ->
     `Error ("Function name cannot be a constant", pos)
   | `Success (Binop (_, _, _), pos) ->
@@ -168,7 +168,7 @@ and find_comp_and_nested_statements text pos statements_start_word statements_en
     (match find_ident_or_keyword text pos with
     | `Success (ssw, pos) when ssw = statements_start_word ->
       let* (st, func_list, pos) =  find_statements text pos statements_end_marker context_level [] in
-        `Success (comp_tree, st, func_list, pos)
+      `Success (comp_tree, st, func_list, pos)
     | _ -> `Error ( Printf.sprintf "Syntax error occured.
      The code doesn't match any scheme. Expexted '%s' " statements_start_word, pos))
 
@@ -177,12 +177,12 @@ and find_comp_and_nested_statements text pos statements_start_word statements_en
 and wdd_and_tail text pos prev_end_marker context_level = 
   let start_pos = pos in
   let* (comp_tree, st, new_list, pos) = find_comp_and_nested_statements text pos "do" (Word "done") context_level in
-    let* (tail, _, pos) = find_statements text pos prev_end_marker context_level new_list in 
-      `Success (While_Do_Done_and_tail ((comp_tree, (st, new_list), start_pos), tail), new_list, pos)
+    let* (tail, new_tail_list, pos) = find_statements text pos prev_end_marker context_level new_list in 
+      `Success (While_Do_Done_and_tail ((comp_tree, (st, new_list), start_pos), tail), new_tail_list, pos)
 
 and itef_and_tail text pos prev_end_marker context_level =
   let start_pos = pos in 
   let* (comp_tree, st1, new_list1, pos) = find_comp_and_nested_statements text pos "then" (Word "else") context_level in
-    let* (st2, new_list2, pos) = find_statements text pos (Word "fi") context_level new_list1 in
-      let* (tail, _, pos) = find_statements text pos prev_end_marker context_level new_list2 in 
-          `Success (If_Then_Else_Fi_and_tail ((comp_tree, (st1, new_list1), (st2, new_list2), start_pos), tail), new_list2, pos)
+    let* (st2, new_list2, pos) = find_statements text pos (Word "fi") context_level [] in
+      let* (tail, new_tail_list, pos) = find_statements text pos prev_end_marker context_level new_list2 in 
+          `Success (If_Then_Else_Fi_and_tail ((comp_tree, (st1, new_list1), (st2, new_list2), start_pos), tail), new_tail_list, pos)
