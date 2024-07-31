@@ -46,6 +46,7 @@ let rec sub_constants = function
   | Const a :: Const b :: rest -> 
       sub_constants (Const (string_of_int ((int_of_string a) - (int_of_string b))) :: rest)
   | expr :: rest -> Binop (Minus, expr, sub_constants rest)
+
 (* connect overflow processing? *)
 let rec simplify_expr = function
   | Binop (Plus, left, right) ->
@@ -98,6 +99,7 @@ let rec simplify_statements = function
   | Nothing -> Nothing
 
    END IS HERE *) 
+
 (*
 let simplify_expr expr =
   let rec gather_constants_and_vars expr =
