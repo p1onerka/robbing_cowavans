@@ -144,13 +144,16 @@ and find_factor text pos =
     find_const text pos
   (* identificator aka var OR function call *)
   else if pos < find_len text && is_alpha text.[pos] then
-
-    let* (ident, pos) = find_ident text pos in
-    if pos < find_len text && text.[pos] = '(' then
-      let* (args, pos) = find_arguments text (pos + 1) in
-      `Success (Func_Call (ident, args), pos)
-    else 
-      `Success (ident, pos)
+    match find_ident text pos with
+    |`Error (msg, pos) -> `Error (msg, pos)
+    |`Success (Var(ident), pos) ->
+      let pos = find_ws text pos in
+      if pos < find_len text && text.[pos] = '(' then
+        let* (args, pos) = find_arguments text (pos + 1) in
+        `Success (Func_Call (ident, args), pos)
+      else 
+        `Success (Var(ident), pos)
+    |`Success _ -> `Error ("Expected variable as identifier", pos)
   else if pos < find_len text && text.[pos] = '-' then
     let* (expr, pos) = find_expr text (pos + 1) in
     `Success (Binop (Minus, Const "0", expr), pos)

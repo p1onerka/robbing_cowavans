@@ -84,7 +84,9 @@ let rec find_statements text pos end_marker context_level cur_func_list =
           `Error ("Unidentified or incorrect keyword" ^ msg_expected_part, pos)
         else if context_level = 0 then
           `Error ("Expression or assignment found in global zone", pos1)
-        else
+        else if text.[find_ws text pos1] = '(' then 
+          func_call_and_tail text pos1 (Ident(id, pos)) end_marker context_level cur_func_list
+        else 
           assignment_and_tail text pos1 (Ident (id, pos)) end_marker context_level cur_func_list
       | EOF -> `Error ("Unexpected end of input", pos1) (* unreachable *)
 
@@ -103,7 +105,7 @@ and find_args text pos =
           else if pos < find_len text && text.[pos] = ')' then
             `Success (List.rev (arg :: acc), pos + 1)
           else `Error ("Invalid argument list", pos)
-      | `Success (Func_Call(Var(name), _), pos) ->
+      | `Success (Func_Call(name, _), pos) ->
         let pos = find_ws text pos in
           if pos < find_len text && text.[pos] = ',' then
             parse_args (pos + 1) (name :: acc)
@@ -144,6 +146,17 @@ and func_and_tail text pos prev_end_marker context_level cur_func_list =
     `Error ("Function name cannot be function call", pos)
   | `Error _ -> `Error ("Function should have a name", pos)
 
+and func_call_and_tail text pos ident prev_end_marker context_level cur_func_list = 
+  let pos = find_ws text pos in 
+  let** (args, pos1) = find_arguments text (pos + 1),
+    "Error parsing arguments"
+  in
+  let pos = find_ws text pos1 in
+  if pos < find_len text && text.[pos] = ';' then
+    let pos = find_ws text (pos + 1) in
+    let* (st, new_tail_list, pos) = find_statements text pos prev_end_marker context_level cur_func_list in
+    `Success (Function_Call((ident, args), st), new_tail_list, pos)
+  else `Error ("Couldn't find ; in function call", pos1)
 
 and assignment_and_tail text pos ident prev_end_marker context_level cur_func_list =
   let pos = find_ws text pos in
@@ -155,8 +168,8 @@ and assignment_and_tail text pos ident prev_end_marker context_level cur_func_li
       let pos = find_ws text pos1 in
         if pos < find_len text && text.[pos] = ';' then
           let pos = find_ws text (pos + 1) in
-            let* (st, _, pos) = find_statements text pos prev_end_marker context_level cur_func_list in
-              `Success (Assignment_and_tail ((ident, exp), st), [], pos)
+            let* (st, new_tail_list, pos) = find_statements text pos prev_end_marker context_level cur_func_list in
+              `Success (Assignment_and_tail ((ident, exp), st), new_tail_list, pos)
         else `Error ("Couldn't find ; in assignment", pos1)
   else `Error ("Couldn't find := in assignment", pos)
 

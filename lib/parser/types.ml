@@ -6,7 +6,7 @@ type expr =
   | Const of string
   | Var of ident
   | Binop of ariphm_oper * expr * expr
-  | Func_Call of expr * expr list (* expr here is Var *)
+  | Func_Call of ident * expr list (* expr here is Var *)
 
 type comp_oper = 
   | Less
