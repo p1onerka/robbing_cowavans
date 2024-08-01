@@ -2,18 +2,9 @@ func sum (a, b) {
     return a+b;
 }
 func main() {
-    a := 10;
-    if a < 5 then
-        func sub (a, b) {
+    a := 10 + sum (9, 2);
+    func sub (a, b) {
         return a;
-        }
-        func subi (a, b) {
-        return b;
-        }
-        a := sub(a, 1);
-    else 
-        func bibi () {
-            return 0;
-        }
-    fi
+    }
+    sub(g,d);
 }
