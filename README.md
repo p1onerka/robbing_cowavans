@@ -6,7 +6,7 @@ This project allows you to compile your source files into RISC-V assembly. It ca
 
 ## Features
 
-- Syntax analizer
+- Syntax analyzer
 - RISC-V code generation
 - Register allocation via Linear Scan algorithm
 - Simplification of constants in arithmetic expressions before code generation
