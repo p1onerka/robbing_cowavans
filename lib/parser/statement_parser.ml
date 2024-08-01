@@ -28,9 +28,6 @@ open Helpers.Bind
 (* take first expr, try to find comp oper, 
    combine it with second expr to form comparison *)
 let find_comparision text pos =
-  (* match find_expr text pos with 
-  | `Error (_,pos) -> `Error ("Condition scheme invalid. Some expressions may have been entered incorrectly", pos)
-  | `Success (e1, pos) -> *)
   let** (e1, pos) = 
     (find_expr text pos),
     "Condition scheme invalid. Some expressions may have been entered incorrectly"
@@ -90,6 +87,7 @@ let rec find_statements text pos end_marker context_level cur_func_list =
           assignment_and_tail text pos1 (Ident (id, pos)) end_marker context_level cur_func_list
       | EOF -> `Error ("Unexpected end of input", pos1) (* unreachable *)
 
+(* search for correct arguments in initialization of function *)
 and find_args text pos = 
   let pos = find_ws text pos in
   let rec parse_args pos acc =
@@ -130,6 +128,7 @@ and parse_func_body text pos context_level cur_func_list =
     let* (body, new_list, pos) = find_statements text (pos + 1) (Word "}") context_level cur_func_list in
     `Success (body, new_list, pos)
 
+(* parses initialization of function completely and calls search for next statement *)
 and func_and_tail text pos prev_end_marker context_level cur_func_list =
   let pos = find_ws text pos in
   match find_ident text pos with
@@ -146,9 +145,10 @@ and func_and_tail text pos prev_end_marker context_level cur_func_list =
     `Error ("Function name cannot be function call", pos)
   | `Error _ -> `Error ("Function should have a name", pos)
 
+(* parses function call completely and calls search for next statement *)
 and func_call_and_tail text pos ident prev_end_marker context_level cur_func_list = 
   let pos = find_ws text pos in 
-  let** (args, pos1) = find_arguments text (pos + 1),
+  let** (args, pos1) = find_arguments_in_call text (pos + 1),
     "Error parsing arguments"
   in
   let pos = find_ws text pos1 in

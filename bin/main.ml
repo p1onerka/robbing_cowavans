@@ -4,7 +4,7 @@ open Parser.Error_processing
 open Parser.Statement_parser
 open Parser.Const_simplification
 open Parser.Types
-(* 
+(*
 let rec print_expr_levels expr level =
   match expr with
   | Const n -> Printf.printf "%sConst %s\n" (String.make (level * 2) ' ') n
@@ -81,6 +81,7 @@ let rec print_statements_levels statements level =
     print_statements_levels tail (level + 1)
   | Nothing -> Printf.printf "%sNothing\n" (String.make (level * 2) ' ') *)
 
+(* check that main function exists and has 0 arguments *)
 let check_main func_list end_pos =
   let rec find_main list =
     match list with
@@ -89,7 +90,7 @@ let check_main func_list end_pos =
         if name = "main" && arg_count = 0 then `Success (Ident (name, pos))
         else find_main tail
   in
-  if find_main func_list then
+  find_main func_list 
 
 let() =
   let parse_and_codegen_program program_text =
@@ -100,20 +101,13 @@ let() =
       | `Error (msg, pos) -> error_processing program_text msg pos
       | `Success (main_ident) ->
         let prog0 = simplify_statements prog in
+        (*
         print_statements_levels prog0 0;
         Printf.printf "MAIN ";
-        print_ident_int_list prog_list;
-        match codegen prog prog_list main_ident with
+        print_ident_int_list prog_list; *)
+        match codegen prog0 prog_list main_ident with
         |`Error (msg, pos) -> error_processing program_text msg pos
         | `Success _ -> ()
-      (*
-      match check_main prog_list end_pos with
-      | `Error (msg, pos) -> error_processing program_text msg pos
-      | `Success (main_ident)-> 
-        (* match codegen (simplify_statements prog) with       *)
-        match codegen prog prog_list main_ident with
-        |`Error (msg, pos) -> error_processing program_text msg pos
-        | `Success _ -> () *)
   in
     if Array.length Sys.argv < 2 then failwith "expects 1 argument, recieved 2";
     let input = read_file_as_string Sys.argv.(1) in parse_and_codegen_program input;

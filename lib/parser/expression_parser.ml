@@ -55,6 +55,7 @@ let find_const text pos =
             find_abs true (find_ws text pos+1)
           else find_abs false pos
 
+(* ident is any word that is not keyword, for example, variable or function name *)
 let find_ident_or_keyword text pos =
   let pos0 = find_ws text pos in
   let length = find_len text in
@@ -113,7 +114,7 @@ and find_term_tail left text pos0 =
   else
     `Success (left, pos0)
 
-and find_arguments text pos =
+and find_arguments_in_call text pos =
   let pos = find_ws text pos in
   if pos < find_len text && text.[pos] = ')' then
     `Success ([], pos + 1)
@@ -121,7 +122,7 @@ and find_arguments text pos =
     let* (arg, pos) = find_expr text pos in
     let pos = find_ws text pos in
     if pos < find_len text && text.[pos] = ',' then
-      let* (args, pos) = find_arguments text (pos + 1) in
+      let* (args, pos) = find_arguments_in_call text (pos + 1) in
       `Success (arg :: args, pos)
     else if pos < find_len text && text.[pos] = ')' then
       `Success (arg :: [], pos + 1)
@@ -142,14 +143,14 @@ and find_factor text pos =
   (* single const *)
   else if pos < find_len text && (is_digit text.[pos] || text.[pos] = '-') then
     find_const text pos
-  (* identificator aka var OR function call *)
+  (* identificator: var OR function call *)
   else if pos < find_len text && is_alpha text.[pos] then
     match find_ident text pos with
     |`Error (msg, pos) -> `Error (msg, pos)
     |`Success (Var(ident), pos) ->
       let pos = find_ws text pos in
       if pos < find_len text && text.[pos] = '(' then
-        let* (args, pos) = find_arguments text (pos + 1) in
+        let* (args, pos) = find_arguments_in_call text (pos + 1) in
         `Success (Func_Call (ident, args), pos)
       else 
         `Success (Var(ident), pos)

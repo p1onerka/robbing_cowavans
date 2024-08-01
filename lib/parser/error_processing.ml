@@ -1,3 +1,5 @@
+(* perform understandable error printing with pointer to error position *)
+
 let error_processing program msg pos = 
   let find_line text position =
     let rec aux index line_number line_start =
