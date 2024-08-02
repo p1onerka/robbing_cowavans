@@ -1,5 +1,5 @@
-.global print_int
-print_int:
+.global print_int0
+print_int0:
 mv a6, a0
 li a0, 0
 li a1, 20

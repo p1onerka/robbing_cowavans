@@ -1,10 +1,8 @@
-func sum (a, b) {
-    return a+b;
+func add (a, b) {
+    return (a + b);
 }
+
 func main() {
-    a := 10 + sum (9, 2);
-    func sub (a, b) {
-        return a;
-    }
-    sub(g,d);
+    print_int (add (2, 2));
+    func add (a,b) {return 5;}
 }
