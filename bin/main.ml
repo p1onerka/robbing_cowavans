@@ -2,7 +2,7 @@ open Parser.Readfile
 (*open Codegen_riscv64.Codegen*)
 open Parser.Error_processing
 open Parser.Statement_parser
-(*open Parser.Const_simplification*)
+open Parser.Const_simplification
 open Parser.Types
 
 let rec print_expr_levels expr level =
@@ -80,7 +80,7 @@ let rec print_statements_levels statements level =
     List.iter (fun expr -> print_expr_levels expr ((level + 2) * 2)) args;
     print_statements_levels tail (level + 1)
   | Nothing -> Printf.printf "%sNothing\n" (String.make (level * 2) ' ')
-(*
+
 let check_main func_list end_pos =
   let rec find_main list =
     match list with
@@ -92,16 +92,20 @@ let check_main func_list end_pos =
   if find_main func_list then
     `Success
   else
-    `Error ("Main function not found or contains arguments", end_pos) *)
+    `Error ("Main function not found or contains arguments", end_pos) 
 
 let() =
   let parse_and_codegen_program program_text =
     match find_statements program_text 0 EOF 0 [] with
     | `Error (msg, pos) -> error_processing program_text msg pos
-    | `Success (prog, prog_list, _(*end_pos*)) -> 
-      print_statements_levels prog 0;
-      Printf.printf "MAIN ";
-      print_ident_int_list prog_list;
+    | `Success (prog, prog_list, end_pos) -> 
+      match check_main prog_list end_pos with
+      | `Error (msg, pos) -> error_processing program_text msg pos
+      | `Success ->
+        let prog0 = simplify_statements prog in
+        print_statements_levels prog0 0;
+        Printf.printf "MAIN ";
+        print_ident_int_list prog_list;
       (*
       match check_main prog_list end_pos with
       | `Error (msg, pos) -> error_processing program_text msg pos
