@@ -1,0 +1,9 @@
+func main() {
+    acc:=1; n:=9;
+    while n > 1 do
+        acc:=acc*n;
+        n:=n-1;
+    done
+    print_int (acc);
+}
+

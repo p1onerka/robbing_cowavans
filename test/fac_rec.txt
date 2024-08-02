@@ -1,0 +1,16 @@
+func sub_one(a) {
+    return (a - 1);
+}
+
+func main() {
+    n:= 4;
+    print_int(fac(fac(sub_one(n))));
+    return 0;
+}
+
+func fac(n) {
+    if n = 1 then return 1;
+    else tmp := fac(sub_one(n)) * n;
+    return tmp;
+    fi
+}

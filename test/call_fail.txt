@@ -1,0 +1,6 @@
+func main() {
+        a:=12;
+        if a >= 13 then func add_one (a) {return a+1;} 
+        else t := add_one (a);
+        fi
+}
