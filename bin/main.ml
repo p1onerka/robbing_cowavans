@@ -1,10 +1,10 @@
 open Parser.Readfile 
-(*open Codegen_riscv64.Codegen*)
+open Codegen_riscv64.Codegen
 open Parser.Error_processing
 open Parser.Statement_parser
 open Parser.Const_simplification
 open Parser.Types
-
+(* 
 let rec print_expr_levels expr level =
   match expr with
   | Const n -> Printf.printf "%sConst %s\n" (String.make (level * 2) ' ') n
@@ -79,20 +79,17 @@ let rec print_statements_levels statements level =
     Printf.printf "%s%s\n" (String.make ((level + 1) * 2) ' ') name;
     List.iter (fun expr -> print_expr_levels expr ((level + 2) * 2)) args;
     print_statements_levels tail (level + 1)
-  | Nothing -> Printf.printf "%sNothing\n" (String.make (level * 2) ' ')
+  | Nothing -> Printf.printf "%sNothing\n" (String.make (level * 2) ' ') *)
 
 let check_main func_list end_pos =
   let rec find_main list =
     match list with
-    | [] -> false
-    | (Ident (name, _), arg_count) :: tail ->
-        if name = "main" && arg_count = 0 then true
+    | [] ->  `Error ("Main function not found or contains arguments", end_pos)
+    | (Ident (name, pos), arg_count) :: tail ->
+        if name = "main" && arg_count = 0 then `Success (Ident (name, pos))
         else find_main tail
   in
   if find_main func_list then
-    `Success
-  else
-    `Error ("Main function not found or contains arguments", end_pos) 
 
 let() =
   let parse_and_codegen_program program_text =
@@ -101,20 +98,22 @@ let() =
     | `Success (prog, prog_list, end_pos) -> 
       match check_main prog_list end_pos with
       | `Error (msg, pos) -> error_processing program_text msg pos
-      | `Success ->
+      | `Success (main_ident) ->
         let prog0 = simplify_statements prog in
         print_statements_levels prog0 0;
         Printf.printf "MAIN ";
         print_ident_int_list prog_list;
+        match codegen prog prog_list main_ident with
+        |`Error (msg, pos) -> error_processing program_text msg pos
+        | `Success _ -> ()
       (*
       match check_main prog_list end_pos with
       | `Error (msg, pos) -> error_processing program_text msg pos
-      | `Success ->
-        match codegen (simplify_statements prog) with 
-        match codegen prog with
+      | `Success (main_ident)-> 
+        (* match codegen (simplify_statements prog) with       *)
+        match codegen prog prog_list main_ident with
         |`Error (msg, pos) -> error_processing program_text msg pos
         | `Success _ -> () *)
   in
     if Array.length Sys.argv < 2 then failwith "expects 1 argument, recieved 2";
     let input = read_file_as_string Sys.argv.(1) in parse_and_codegen_program input;
-    (* String.iteri (fun i ch -> (print_int i; print_string " "; print_char ch; print_string "\n")) input *)

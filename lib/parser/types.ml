@@ -64,51 +64,62 @@ module VarHeap = CCHeap.Make(
         x_id <= y_id
     end);;
 
-module type FStack_i = sig
-  type 'a fstack
-  val create : 'a fstack
-  val is_empty : 'a fstack -> bool
-  val push : 'a -> 'a fstack -> 'a fstack
-  val pop : 'a fstack -> ('a fstack * 'a) option
-  val peek : 'a fstack -> 'a option
-  val add_list: 'a fstack -> 'a list -> 'a fstack
-
-  val iter: ('a -> unit) -> 'a fstack -> unit
-end
-
-module FStack : FStack_i = struct
- type 'a fstack = 'a list
-  let create = []
-  let is_empty = function 
-    | [] -> true
-    | _ -> false
-  let push el = function
-    | [] ->  el::[]
-    | list -> el::list
-  let pop = function
-    | [] -> None
-    | hd::tl -> Some (tl, hd)
-  
-  let peek = function
-    |[] -> None
-    | hd::_ -> Some hd
-  
-  let add_list list = function
-  | [] -> list
-  | l -> List.append l list
-  let iter f = function
-  | [] -> ()
-  | l -> List.iter f l
-end
-
-(*stack_memory_info is occupied stack memory size and allocated stack memory size *)
-(*depth = last do/then/else block's (for which this expr is inner) depth*)
-(*protected = reg, offset, depth_diff: list for return due vars to their regs after loop*)
-type context = {
-  vars : VarHeap.t;
-  active : IntervalMinFinishHeap.t;
-  free_regs : string FStack.fstack;
-  protected : (string*int*int) list;
-  depth : int;
-  stack_memory_info : int*int;
-}
+    module type FStack_i = sig
+      type 'a fstack
+      val create : 'a fstack
+      val is_empty : 'a fstack -> bool
+      val push : 'a -> 'a fstack -> 'a fstack
+      val pop : 'a fstack -> ('a fstack * 'a) option
+      val peek : 'a fstack -> 'a option
+      val add_list: 'a fstack -> 'a list -> 'a fstack
+    
+      val filter: ('a -> bool) -> 'a fstack -> 'a fstack
+      val iter: ('a -> unit) -> 'a fstack -> unit
+      val find_opt : ('a -> bool) -> 'a fstack -> 'a option
+    end
+    
+    module FStack : FStack_i = struct
+     type 'a fstack = 'a list
+      let create = []
+      let is_empty = function 
+        | [] -> true
+        | _ -> false
+      let push el = function
+        | [] ->  el::[]
+        | list -> el::list
+      let pop = function
+        | [] -> None
+        | hd::tl -> Some (tl, hd)
+      
+      let peek = function
+        |[] -> None
+        | hd::_ -> Some hd
+      
+      let add_list list = function
+      | [] -> list
+      | l -> List.append l list
+      let iter f = function
+      | [] -> ()
+      | l -> List.iter f l
+    
+      let filter cond = function
+      | [] -> []
+      | l -> List.filter cond l
+    
+      let find_opt cond = function
+      | [] -> None
+      | l -> List.find_opt cond l
+    end
+    
+    (*stack_memory_info is occupied stack memory size and allocated stack memory size *)
+    (*depth = last do/then/else block's (for which this expr is inner) depth*)
+    (*protected = reg, offset, depth_diff: list for return due vars to their regs after loop*)
+    type context = {
+      vars : VarHeap.t;
+      active : IntervalMinFinishHeap.t;
+      free_regs : string FStack.fstack;
+      protected : (string*int*int) list;
+      depth : int;
+      stack_memory_info : int*int;
+    }
+    
