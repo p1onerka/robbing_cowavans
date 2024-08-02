@@ -6,3 +6,4 @@ func main() {
     print_int (add (2, 2));
     func add (a,b) {return 5;}
 }
+
