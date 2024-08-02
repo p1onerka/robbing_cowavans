@@ -1,0 +1,12 @@
+func add (a, b) {
+    return (a + b);
+}
+
+func main() {
+    print_int (add (2, 2));
+    print_int (add (1, 2, 3));
+    func add (a,b) {return 5;}
+}
+
+func add (a, b, c) {return a + b + c;}
+

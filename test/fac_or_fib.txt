@@ -1,0 +1,16 @@
+fun main() {
+    acc:=1; n:=7;
+    if n <> 7 then
+        while n>1 do
+                acc:=acc*n;
+                n:=n-1;
+        done
+    else
+    a:=0;
+    while n>1 do
+        acc:=a+acc;
+        a:=acc-a;
+        n:=n-1;
+    done
+    fi
+}
