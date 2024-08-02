@@ -1,0 +1,63 @@
+name: Build Master in docker
+
+on:
+  pull_request:
+    branches:
+      - 'master'
+  push:
+    branches:
+      - 'master'
+
+env:
+  OPAMROOT: /home/opam/.opam
+  #OPAMYES: true
+  OPAMCONFIRMLEVEL: unsafe-yes
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
+    container:
+      image: ocaml/opam:ubuntu-lts-ocaml-4.14
+      options: --user root               # dirty hack
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      # https://github.com/styfle/cancel-workflow-action
+      # - name: Cancel Previous Runs
+      #   uses: styfle/cancel-workflow-action@0.11.0
+      #   with:
+      #     access_token: ${{ github.token }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # By some reason depext doesn't install it for conf-autoconf
+      - run: |
+          sudo apt-get update -y
+          sudo apt-get install autoconf -y
+
+      # checking out the code seems to be important because local switch is used
+      - name: Installing dependencies
+        run: |
+          opam pin add ./ -n
+          opam install . --deps-only --with-test --with-doc
+        #opam depext zanuda reviewer -y
+
+      - name: Building...
+        run: opam exec -- dune build --profile=release
+
+      - run: opam exec -- dune build @install --profile=release
+
+      - name: Running tests in release...
+        run: |
+          opam exec -- dune test --profile=release

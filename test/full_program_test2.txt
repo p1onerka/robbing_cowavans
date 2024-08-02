@@ -1,15 +1,10 @@
-acc:=1; n:=6;
-if n <> 7 then
-        while n>1 do
-                acc:=acc*n;
-                n:=n-1;
-        done
-else
-        a:=0;
-        while n>1 do
-                acc:=a+acc;
-                a:=acc-a;
-                n:=n-1;
-        done
-fi
-e := n - acc;
+func sum (a, b) {
+    return a+b;
+}
+func main() {
+    a := 10 + sum (9, 2);
+    func sub (a, b) {
+        return a;
+    }
+    sub(g,d);
+}

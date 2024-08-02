@@ -1,3 +1,5 @@
 (library
 (name parser)
-(modules types readfile expression_parser statement_parser))
+
+(libraries helpers CCHeap)
+(modules types readfile expression_parser statement_parser error_processing const_simplification))
