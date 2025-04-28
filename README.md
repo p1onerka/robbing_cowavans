@@ -127,7 +127,7 @@ jr ra
 ## Developers and contacts
 
 - [@p1onerka](https://github.com/p1onerka) (tg @p10nerka)
-- [@Szczucki](https://github.com/Szczucki) (tg @szcz00)
+- [@ns-58](https://github.com/ns-58) (tg @szcz00)
 
 
 ## Feedback
